@@ -34,8 +34,13 @@ export type ContentTraverser<T> = (handle: {
   obj: T;
   filter: (val: T) => boolean;
   callback: (val: T) => Promise<T>;
-  deep?: Boolean;
 }) => Promise<T>;
+
+export type ContentTraverserSync<T> = (handle: {
+  obj: T;
+  filter: (val: T) => boolean;
+  callback: (val: T) => T;
+}) => T;
 
 /* Shape of the return value of vite's glob, a ComponentMap of ComponentModules.
  */

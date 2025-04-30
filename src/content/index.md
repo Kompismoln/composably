@@ -1,15 +1,8 @@
 ---
-title: test-title
 component: Test
-test: asdf
-slots:
-  alertWithDragon:
-    component: Alert
-    icon: fa-dragon
-    theme: alert-warning
-    text: |
-      Allt kommer bli bra.
+title: Hello
+_fragment: _fragment.yaml
   
 ---
-# {title}
-::alertWithDragon
+# h2
+{{'{{{{'}}title{{'}}}}'}}="{{title}}"

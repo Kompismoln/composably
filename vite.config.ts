@@ -9,6 +9,11 @@ const config = {
 };
 
 export default defineConfig({
+  server: {
+    watch: {
+      ignored: ['**/.direnv/**']
+    },
+  },
   plugins: [composably(config)],
   test: {
     workspace: [

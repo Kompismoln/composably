@@ -1,0 +1,7 @@
+component: Fragment
+slots:
+  slot: 
+    component: Slot
+    sentinel: hello
+text: |
+  ::slot

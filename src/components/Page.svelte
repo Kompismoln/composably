@@ -1,7 +1,4 @@
 <script lang="ts">
-  /* The default page component contract.
-   * Should agree with PageContent in types.d.ts
-   */
   let page = $props();
 </script>
 

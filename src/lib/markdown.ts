@@ -40,6 +40,7 @@ import {
 
 import type { ComponentContent } from './types';
 
+
 /* Take a prepared markdown object and return a { html, data } object.
  *
  * This function should really have a return type.
@@ -79,7 +80,8 @@ export const parse = async (content: ComponentContent) => {
 
       .process(content.markdown as string);
 
-    content.html = String(result.value).replace(
+    content.html = transformBraces(String(result.value))
+      .replace(
       /<svelte-component data-slot="([^"]+)"([^>]*)><\/svelte-component>/g,
       '<slots.$1.component {...slots.$1} />'
     );
@@ -100,3 +102,16 @@ export const parse = async (content: ComponentContent) => {
     );
   }
 };
+
+function transformBraces(str: string) {
+
+  return str
+    .replace(/{{/g, '__DOUBLE_LEFT__')
+    .replace(/}}/g, '__DOUBLE_RIGHT__')
+    .replace(/{/g, '__SINGLE_LEFT__')
+    .replace(/}/g, '__SINGLE_RIGHT__')
+    .replace(/__SINGLE_LEFT__/g, "{'{'}")
+    .replace(/__SINGLE_RIGHT__/g, "{'}'}")
+    .replace(/__DOUBLE_LEFT__/g, '{')
+    .replace(/__DOUBLE_RIGHT__/g, '}');
+}

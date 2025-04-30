@@ -2,16 +2,19 @@
   import { c } from '../lib/schemas.js';
 
   export const schema = c.content({
-    title: c.string().optional(),
-    test: c.string(),
+    title: c.string(),
     body: c.markdown(),
-    slots: c.slots()
+    fragment: c.component(['Fragment']),
   });
 </script>
 
 <script>
-  let { title, test, body } = $props();
+  let { title, body, fragment } = $props();
 </script>
-
-<h1>{title}</h1>
-<body.component {...body} />
+<h1 data-testid="h1">{title}</h1>
+<div data-testid="test-body">
+  <body.component {...body} />
+</div>
+<div data-testid="fragment-component">
+  <fragment.component {...fragment} />
+</div>
