@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import { discoverContentPaths, loadContent, setConfig } from './content.loader';
 import type { PageContent, ComponentContent } from './types';
-import { sveltekit } from '@sveltejs/kit/vite'
+import { sveltekit } from '@sveltejs/kit/vite';
 
 let entries: string[];
 const getEntries = (refresh = false) => {
@@ -32,15 +32,10 @@ const getContent = (refresh = false) => {
 export default async function composably(
   options: Record<string, string>
 ): Promise<Plugin[]> {
-  return [
-    (await plugin(options)),
-    sveltekit()
-  ];
-};
+  return [await plugin(options), sveltekit()];
+}
 
-async function plugin(
-  options: Record<string, string>
-): Promise<Plugin> {
+async function plugin(options: Record<string, string>): Promise<Plugin> {
   return {
     name: 'svelte-composably',
     enforce: 'pre',

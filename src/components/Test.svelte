@@ -4,13 +4,14 @@
   export const schema = c.content({
     title: c.string(),
     body: c.markdown(),
-    fragment: c.component(['Fragment']),
+    fragment: c.component(['Fragment'])
   });
 </script>
 
 <script>
   let { title, body, fragment } = $props();
 </script>
+
 <h1 data-testid="h1">{title}</h1>
 <div data-testid="test-body">
   <body.component {...body} />

@@ -45,11 +45,12 @@ export const contentTraverser: ContentTraverser<any> = async ({
 export const contentTraverserSync: ContentTraverserSync<any> = ({
   obj,
   callback,
-  filter,
+  filter
 }) => {
   if (Array.isArray(obj)) {
-    const newArr = 
-    obj.map((item) => contentTraverserSync({ obj: item, filter, callback }));
+    const newArr = obj.map((item) =>
+      contentTraverserSync({ obj: item, filter, callback })
+    );
     return newArr;
   }
   if (typeof obj === 'object' && obj !== null) {
@@ -66,7 +67,7 @@ export const contentTraverserSync: ContentTraverserSync<any> = ({
       const newItem = contentTraverserSync({
         obj: item,
         filter,
-        callback,
+        callback
       });
       return [key, newItem];
     });

@@ -1,6 +1,6 @@
 component: Fragment
 slots:
-  slot: 
+  slot:
     component: Slot
     sentinel: hello
 text: |

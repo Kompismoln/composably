@@ -5,7 +5,9 @@
     sentinel: c.string()
   });
 </script>
+
 <script>
   let props = $props();
 </script>
+
 <div data-testid="slot-prop">{props.sentinel}</div>
