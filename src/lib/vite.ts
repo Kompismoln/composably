@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
-import { discoverContentPaths, loadContent, setConfig } from './content.loader';
-import type { PageContent, ComponentContent } from './types';
+import { discoverContentPaths, loadContent, setConfig } from './content.loader.js';
+import type { PageContent, ComponentContent } from './types.d.ts';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 let entries: string[];

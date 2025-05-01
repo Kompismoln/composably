@@ -30,15 +30,15 @@ import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
 import type { VFile } from 'vfile';
 
-import parseHeadings from './unified-plugins/headings';
-import addLinkClass from './unified-plugins/daisyui';
-import parseSlots from './unified-plugins/slots';
+import parseHeadings from './unified-plugins/headings.js';
+import addLinkClass from './unified-plugins/daisyui.js';
+import parseSlots from './unified-plugins/slots.js';
 import {
   remarkDefinitionList,
   defListHastHandlers
-} from './unified-plugins/definitionList';
+} from './unified-plugins/definitionList.js';
 
-import type { ComponentContent } from './types';
+import type { ComponentContent } from './types.d.ts';
 
 /* Take a prepared markdown object and return a { html, data } object.
  *

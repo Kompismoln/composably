@@ -1,4 +1,4 @@
-import type { ResolvedComponent } from './types';
+import type { ResolvedComponent } from './types.d.ts';
 import { hydrate } from 'svelte';
 import { browser } from '$app/environment';
 

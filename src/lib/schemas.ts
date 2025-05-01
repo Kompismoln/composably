@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import z from 'zod';
-import type { ComponentContent } from './types';
-import { shortHash } from './utils';
+import type { ComponentContent } from './types.d.ts';
+import { shortHash } from './utils.js';
 
 /**
  * Provides the following utility schemas:

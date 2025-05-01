@@ -6,8 +6,8 @@ import { globSync } from 'node:fs';
 import path from 'node:path';
 import { getSchema } from './schemas.js';
 
-import type { ComponentContent, Config } from './types';
-import { contentTraverser } from './utils';
+import type { ComponentContent, Config } from './types.d.ts';
+import { contentTraverser } from './utils.js';
 
 const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 
@@ -196,7 +196,7 @@ export const validateAndTransformComponent = async (
 };
 
 const processVirtualComponent = async (content: ComponentContent) => {
-  const parse = (await import('./markdown')).parse;
+  const parse = (await import('./markdown.js')).parse;
   if ('markdown' in content) {
     const parsedContent = await parse(content);
     return parsedContent;
