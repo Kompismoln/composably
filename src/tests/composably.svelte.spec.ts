@@ -12,7 +12,8 @@ test('site components', async () => {
     'hello'
   );
   expect(getByTestId('test-body').children[0].tagName).toBe('H2');
-  expect(getByTestId('test-body').children[0].id).toBe('h2');
+  expect(getByTestId('test-body').children[0].id).toBe('h2-id');
+  expect(getByTestId('test-body').children[0].classList[0]).toBe('h2-class');
   expect(getByTestId('test-body').children[1].textContent).toBe(
     '{{title}}="Hello"'
   );
@@ -22,4 +23,6 @@ test('site components', async () => {
   expect(
     getByTestId('headings').children[0].textContent
   ).toBe('h2 1');
+  expect(
+    getByTestId('remark-replaced').textContent).toBe('remark-replaced');
 });

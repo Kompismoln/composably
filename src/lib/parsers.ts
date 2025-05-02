@@ -17,7 +17,6 @@
  */
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
-import remarkLint from 'remark-lint'; // Consider if linting should be optional/configurable
 import remarkRehype from 'remark-rehype';
 import remarkDirective from 'remark-directive';
 import rehypeHighlight from 'rehype-highlight';
@@ -33,7 +32,6 @@ import type { VFile } from 'vfile';
 
 // Default plugins (can be customized further)
 import parseHeadings from './unified-plugins/headings.js';
-import addLinkClass from './unified-plugins/daisyui.js';
 import parseSlots from './unified-plugins/slots.js';
 import {
   remarkDefinitionList,
@@ -103,7 +101,6 @@ async function parseMarkdownString(
     // 2. Base Markdown Parsing and Remark Plugins
     .use(remarkParse)
     .use(emoji, { accessible: true }) // Default: emoji
-    .use(remarkLint) // Default: linting (consider making optional)
     .use(parseHeadings) // Default: Headings & TOC
     .use(parseSlots) // Default: Slot placeholders
     .use(remarkGfm) // Default: GitHub Flavored Markdown
@@ -136,8 +133,7 @@ async function parseMarkdownString(
       detect: true,
       ignoreMissing: true,
       languages: all
-    })
-    .use(addLinkClass); // Default: Add DaisyUI link classes
+    });
 
   // 6. Inject custom Rehype plugins
   (config.rehypePlugins || []).forEach((plugin) => {
