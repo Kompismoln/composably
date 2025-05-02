@@ -2,7 +2,8 @@ import type { ComponentContent, Config } from './types.d.ts';
 /**
  * Options for customizing the parsing process.
  */
-export interface ParseOptions {}
+export interface ParseOptions {
+}
 /**
  * Parses designated fields within a ComponentContent object.
  * Currently focuses on parsing a 'markdown' field into an 'html' field,
@@ -17,7 +18,4 @@ export interface ParseOptions {}
  * extracted data, and merged properties.
  * @throws Throws an error if parsing fails.
  */
-export declare const parseComponentContent: (
-  content: ComponentContent,
-  config: Config
-) => Promise<ComponentContent>;
+export declare const parseComponentContent: (content: ComponentContent, config: Config) => Promise<ComponentContent>;

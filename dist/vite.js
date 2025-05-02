@@ -17,9 +17,9 @@ const RESOLVED_PAGE = `\0${VIRTUAL_PAGE}`;
 const COMPONENT_SUFFIX = '.svelte';
 // ---------------------------------------------
 export default async function composably(config) {
-  const composablyPlugin = await plugin(config);
-  const sveltePlugins = await sveltekit();
-  return [composablyPlugin, ...sveltePlugins];
+    const composablyPlugin = await plugin(config);
+    const sveltePlugins = await sveltekit();
+    return [composablyPlugin, ...sveltePlugins];
 }
 // --- New Data Structures ---
 // Cache for resolved page content promises
@@ -43,316 +43,292 @@ let entries = null; // Use Set for easier diffing later
 // --- Helper Functions ---
 // Function to invalidate specific caches based on a changed file
 function invalidateCacheForFile(filePath) {
-  const affectedEntries = fileToContentEntries.get(filePath);
-  if (affectedEntries) {
-    affectedEntries.forEach((entryPath) => {
-      // 1. Invalidate Page Cache
-      pageCache.delete(entryPath);
-      console.log(`Invalidated page cache for entry: ${entryPath}`);
-      // 2. Invalidate associated Virtual Components
-      const affectedVComps = entryToVirtualComponents.get(entryPath);
-      if (affectedVComps) {
-        affectedVComps.forEach((vcId) => {
-          virtualComponentCache.delete(vcId);
-          console.log(`Invalidated virtual component cache for: ${vcId}`);
+    const affectedEntries = fileToContentEntries.get(filePath);
+    if (affectedEntries) {
+        affectedEntries.forEach((entryPath) => {
+            // 1. Invalidate Page Cache
+            pageCache.delete(entryPath);
+            console.log(`Invalidated page cache for entry: ${entryPath}`);
+            // 2. Invalidate associated Virtual Components
+            const affectedVComps = entryToVirtualComponents.get(entryPath);
+            if (affectedVComps) {
+                affectedVComps.forEach((vcId) => {
+                    virtualComponentCache.delete(vcId);
+                    console.log(`Invalidated virtual component cache for: ${vcId}`);
+                });
+                entryToVirtualComponents.delete(entryPath); // Clear the association
+            }
+            // 3. Clean up the reverse dependency map for this entry
+            // (Iterate fileToContentEntries and remove this entryPath from sets)
+            // This is important if the file dependencies themselves change on reload.
+            // Alternatively, rebuild dependencies during load. Let's stick to simple invalidation first.
         });
-        entryToVirtualComponents.delete(entryPath); // Clear the association
-      }
-      // 3. Clean up the reverse dependency map for this entry
-      // (Iterate fileToContentEntries and remove this entryPath from sets)
-      // This is important if the file dependencies themselves change on reload.
-      // Alternatively, rebuild dependencies during load. Let's stick to simple invalidation first.
-    });
-    // 4. Clear the forward dependency for the changed file
-    fileToContentEntries.delete(filePath);
-  }
-  // Potentially: Check if the file change affects the *list* of entries
-  // (e.g., if discoverContentPaths depends on directory contents)
-  // If so, invalidate `entries` cache too. entries = null;
+        // 4. Clear the forward dependency for the changed file
+        fileToContentEntries.delete(filePath);
+    }
+    // Potentially: Check if the file change affects the *list* of entries
+    // (e.g., if discoverContentPaths depends on directory contents)
+    // If so, invalidate `entries` cache too. entries = null;
 }
 // Function to get or load a single page's content
 async function getOrLoadPage(entryPath, config) {
-  if (pageCache.has(entryPath)) {
-    return pageCache.get(entryPath).promise;
-  }
-  const currentSourceFiles = new Set();
-  const generatedVirtualComponents = new Set();
-  const pagePromise = loadContent(
-    entryPath,
-    config,
+    if (pageCache.has(entryPath)) {
+        return pageCache.get(entryPath).promise;
+    }
+    const currentSourceFiles = new Set();
+    const generatedVirtualComponents = new Set();
+    const pagePromise = loadContent(entryPath, config, 
     // Virtual Component Callback
     (processedVirtualComponent) => {
-      if (processedVirtualComponent?.component) {
-        const vcId = processedVirtualComponent.component; // Already prefixed e.g., composably:component/MyVirtualComp
-        console.log(
-          `Caching virtual component: ${vcId} from entry: ${entryPath}`
-        );
-        virtualComponentCache.set(vcId, {
-          data: processedVirtualComponent,
-          sourceEntryPath: entryPath
-        });
-        generatedVirtualComponents.add(vcId);
-        // We don't know the *exact* source lines, but we know it came *from processing* this entryPath.
-        // Dependencies on source files are handled via reportFileDependency.
-      } else {
-        console.warn(/* ... warning ... */);
-      }
-    },
+        if (processedVirtualComponent?.component) {
+            const vcId = processedVirtualComponent.component; // Already prefixed e.g., composably:component/MyVirtualComp
+            console.log(`Caching virtual component: ${vcId} from entry: ${entryPath}`);
+            virtualComponentCache.set(vcId, {
+                data: processedVirtualComponent,
+                sourceEntryPath: entryPath
+            });
+            generatedVirtualComponents.add(vcId);
+            // We don't know the *exact* source lines, but we know it came *from processing* this entryPath.
+            // Dependencies on source files are handled via reportFileDependency.
+        }
+        else {
+            console.warn( /* ... warning ... */);
+        }
+    }, 
     // File Dependency Callback
     (absolutePath) => {
-      console.log(`Registering dependency: ${entryPath} -> ${absolutePath}`);
-      currentSourceFiles.add(absolutePath);
-      // Update reverse mapping: file -> entry
-      if (!fileToContentEntries.has(absolutePath)) {
-        fileToContentEntries.set(absolutePath, new Set());
-      }
-      fileToContentEntries.get(absolutePath).add(entryPath);
-    }
-  ).catch((err) => {
-    // Handle errors during loadContent, remove promise from cache
-    pageCache.delete(entryPath);
-    // Clear potentially partial dependencies (optional, depends on desired error resilience)
-    currentSourceFiles.forEach((f) =>
-      fileToContentEntries.get(f)?.delete(entryPath)
-    );
-    generatedVirtualComponents.forEach((vcId) =>
-      virtualComponentCache.delete(vcId)
-    );
-    entryToVirtualComponents.delete(entryPath);
-    console.error(`Error loading content for ${entryPath}:`, err);
-    throw err; // Re-throw to propagate the error
-  });
-  // Store the promise *immediately* to handle concurrent requests for the same page
-  pageCache.set(entryPath, {
-    promise: pagePromise,
-    sourceFiles: currentSourceFiles
-  });
-  entryToVirtualComponents.set(entryPath, generatedVirtualComponents); // Store VC associations
-  // Wait for the actual content loading to finish before returning
-  const pageContent = await pagePromise;
-  // Now that loading is successful, update cache entry with resolved details if needed,
-  // though storing the promise is usually sufficient.
-  // pageCache.set(entryPath, { promise: Promise.resolve(pageContent), sourceFiles: currentSourceFiles }); // Update with resolved promise
-  return pageContent;
+        console.log(`Registering dependency: ${entryPath} -> ${absolutePath}`);
+        currentSourceFiles.add(absolutePath);
+        // Update reverse mapping: file -> entry
+        if (!fileToContentEntries.has(absolutePath)) {
+            fileToContentEntries.set(absolutePath, new Set());
+        }
+        fileToContentEntries.get(absolutePath).add(entryPath);
+    }).catch((err) => {
+        // Handle errors during loadContent, remove promise from cache
+        pageCache.delete(entryPath);
+        // Clear potentially partial dependencies (optional, depends on desired error resilience)
+        currentSourceFiles.forEach((f) => fileToContentEntries.get(f)?.delete(entryPath));
+        generatedVirtualComponents.forEach((vcId) => virtualComponentCache.delete(vcId));
+        entryToVirtualComponents.delete(entryPath);
+        console.error(`Error loading content for ${entryPath}:`, err);
+        throw err; // Re-throw to propagate the error
+    });
+    // Store the promise *immediately* to handle concurrent requests for the same page
+    pageCache.set(entryPath, {
+        promise: pagePromise,
+        sourceFiles: currentSourceFiles
+    });
+    entryToVirtualComponents.set(entryPath, generatedVirtualComponents); // Store VC associations
+    // Wait for the actual content loading to finish before returning
+    const pageContent = await pagePromise;
+    // Now that loading is successful, update cache entry with resolved details if needed,
+    // though storing the promise is usually sufficient.
+    // pageCache.set(entryPath, { promise: Promise.resolve(pageContent), sourceFiles: currentSourceFiles }); // Update with resolved promise
+    return pageContent;
 }
 // Function to get entry list (can remain similar, maybe return Set)
 function getEntries(config, refresh = false) {
-  if (refresh || !entries) {
-    // Make sure discoverContentPaths returns unique paths
-    entries = new Set(discoverContentPaths(config));
-  }
-  return entries ?? new Set();
+    if (refresh || !entries) {
+        // Make sure discoverContentPaths returns unique paths
+        entries = new Set(discoverContentPaths(config));
+    }
+    return entries ?? new Set();
 }
 async function plugin(config) {
-  // Use the new caches and helpers defined above
-  return {
-    name: 'svelte-composably',
-    enforce: 'pre',
-    // --- Inject user project root in config ---
-    configResolved(viteResolvedConfig) {
-      config.root = viteResolvedConfig.root;
-      console.log(`Composably Plugin: Project root resolved to ${config.root}`);
-      getEntries(config, true);
-    },
-    resolveId(source) {
-      if (source === VIRTUAL_CONTENT) {
-        return RESOLVED_CONTENT;
-      }
-      if (source.startsWith(VIRTUAL_PAGE)) {
-        // Ensure valid entry path before resolving
-        const entry = source.slice(VIRTUAL_PAGE.length);
-        if (getEntries(config).has(entry)) {
-          // Check against current known entries
-          return `\0${source}`; // Use original source with null byte
-        }
-        console.warn(
-          `Attempted to resolve non-existent content entry: ${entry}`
-        );
-        return undefined; // Don't resolve if entry doesn't exist
-      }
-      if (source.startsWith(VIRTUAL_COMPONENT)) {
-        // No null byte needed if it's treated like a normal svelte file path for Vite/Svelte plugin?
-        // Or add one for consistency: return `\0${source}`;
-        // Check if it exists in the cache (optional, load will handle it)
-        // if (virtualComponentCache.has(source)) { ... }
-        return source; // Assuming Vite/Svelte handles .svelte resolution
-      }
-      return undefined; // Explicitly return undefined for other cases
-    },
-    async load(id, opts) {
-      // --- Load VIRTUAL_CONTENT list ---
-      if (id === RESOLVED_CONTENT) {
-        console.log('Loading:', RESOLVED_CONTENT);
-        const currentEntries = Array.from(getEntries(config)); // Get latest entries
-        const tpl = (p) => `'${p}': () => import('${VIRTUAL_PAGE}${p}')`;
-        const code = `export default { ${currentEntries.map(tpl).join(',\n')} };`;
-        // Cache this generated code? Only needs update if entries list changes.
-        return code;
-      }
-      // --- Load specific page content ---
-      // Match resolved ID: \0composably:content/about
-      if (id.startsWith(RESOLVED_PAGE)) {
-        const entryPath = id.slice(RESOLVED_PAGE.length);
-        console.log('Loading:', id, `(Entry: ${entryPath})`);
-        try {
-          // Use the granular getter/loader
-          const page = await getOrLoadPage(entryPath, config);
-          // Stringify and replace components
-          // Consider caching the result of this expensive operation too,
-          // invalidated when the page content or component code changes.
-          let code = `export default async () => (${JSON.stringify(page)});`;
-          code = code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
-            const isVirtual = compPath.startsWith(VIRTUAL_COMPONENT);
-            const importPath = isVirtual
-              ? `${compPath}.svelte` // Append suffix for virtual Svelte components
-              : `/${config.componentRoot}/${compPath}.svelte`; // Path to real component
-            return `"component":(await import('${importPath}')).default`;
-          });
-          return code;
-        } catch (error) {
-          console.error(`Error processing load for ${id}:`, error);
-          return `export default async () => { throw new Error("Failed to load content for ${entryPath}"); };`;
-        }
-      }
-      // --- Load virtual component code ---
-      // Match ID like composably:component/MyVirtualComp.svelte
-      // Ensure the ID includes the suffix if resolveId doesn't add \0
-      const vcMatch = id.match(
-        new RegExp(
-          `^${VIRTUAL_COMPONENT.replace(':', '\\:')}(.+)${COMPONENT_SUFFIX}$`
-        )
-      );
-      if (!vcMatch) {
-        return null; // Let other plugins handle other IDs
-      }
-      const vcName = `${VIRTUAL_COMPONENT}${vcMatch[1]}`; // Reconstruct the key used in the cache
-      console.log('Loading Virtual Component:', id, `(Name: ${vcName})`);
-      const cachedVC = virtualComponentCache.get(vcName);
-      if (!cachedVC) {
-        console.warn(
-          `Virtual component data not found in cache for: ${vcName}`
-        );
-        // Attempt to reload the source page? This might be complex.
-        // Or rely on HMR invalidation to fix it.
-        // For now, return an error/empty component.
-        return `<script>console.error("Virtual component ${vcName} not loaded.");</script>`;
-      }
-      const { data } = cachedVC;
-      const { component, ...props } = data; // Destructure the ComponentContent
-      // Including html enable {@html props.html}, which could be useful,
-      // If not it should be deleted upstream
-      const propKeys = Object.keys(props).filter((k) => k !== 'html');
-      // Exclude html from props declaration
-      const propString = `{ ${propKeys.join(', ')} } = $props();`;
-      const scriptString =
-        propKeys.length > 0 ? `<script>\nlet ${propString};\n</script>\n` : '';
-      // Simple example: Render HTML content directly. Adapt if structure is different.
-      return `${scriptString}\n${props.html || ''}`;
-    },
-    async handleHotUpdate({ file, server }) {
-      console.log(`HMR triggered by: ${file}`);
-      const absolutePath = file; // Assuming 'file' is absolute path
-      // Check if the changed file affects any content entry
-      const affectedEntries = fileToContentEntries.get(absolutePath);
-      const modulesToReload = new Set();
-      if (affectedEntries && affectedEntries.size > 0) {
-        console.log(`File ${absolutePath} affects entries:`, affectedEntries);
-        // Invalidate caches for affected entries AND their virtual components
-        invalidateCacheForFile(absolutePath); // Use the helper
-        // Find the Vite modules to reload
-        for (const entryPath of affectedEntries) {
-          // 1. Reload the page module (`\0composably:content/entryPath`)
-          const pageModuleId = `${RESOLVED_PAGE}${entryPath}`;
-          const pageMod = server.moduleGraph.getModuleById(pageModuleId);
-          if (pageMod) {
-            console.log(`Invalidating page module: ${pageModuleId}`);
-            server.moduleGraph.invalidateModule(pageMod);
-            modulesToReload.add(pageMod);
-          } else {
-            console.log(
-              `Page module not found in graph (may not be loaded yet): ${pageModuleId}`
-            );
-          }
-          // 2. Reload affected virtual component modules
-          // We need the VCs associated *before* invalidation, so retrieve before full cleanup
-          // (Alternatively, invalidateCacheForFile could return affected VC IDs)
-          // Let's assume virtualComponentCache might still hold *stale* data linking back
-          // A better way: iterate virtualComponentCache *before* invalidation
-          for (const [vcId, vcData] of virtualComponentCache.entries()) {
-            // Check cache before full clear
-            if (vcData.sourceEntryPath === entryPath) {
-              const vcModuleId = `${vcId}.svelte`; // Append suffix
-              const vcMod = server.moduleGraph.getModuleById(vcModuleId);
-              if (vcMod) {
-                console.log(
-                  `Invalidating virtual component module: ${vcModuleId}`
-                );
-                server.moduleGraph.invalidateModule(vcMod);
-                modulesToReload.add(vcMod);
-              } else {
-                console.log(`VC module not found in graph: ${vcModuleId}`);
-              }
+    // Use the new caches and helpers defined above
+    return {
+        name: 'svelte-composably',
+        enforce: 'pre',
+        // --- Inject user project root in config ---
+        configResolved(viteResolvedConfig) {
+            config.root = viteResolvedConfig.root;
+            console.log(`Composably Plugin: Project root resolved to ${config.root}`);
+            getEntries(config, true);
+        },
+        resolveId(source) {
+            if (source === VIRTUAL_CONTENT) {
+                return RESOLVED_CONTENT;
             }
-          }
-        }
-      } else {
-        console.log(
-          `File ${absolutePath} does not directly affect known content entries.`
-        );
-        // Add logic here to check if the change affects the *list* of entries itself
-        // e.g., by comparing getEntries(config, true) with the cached 'entries' Set.
-        // If the list changes, invalidate RESOLVED_CONTENT.
-        const oldEntries = entries ? new Set(entries) : new Set();
-        const newEntries = getEntries(config, true); // Force refresh discovery
-        if (setsDiffer(oldEntries, newEntries)) {
-          console.log('Entry list changed. Invalidating content list module.');
-          entries = newEntries; // Update cache
-          const listModule = server.moduleGraph.getModuleById(RESOLVED_CONTENT);
-          if (listModule) {
-            server.moduleGraph.invalidateModule(listModule);
-            modulesToReload.add(listModule);
-          }
-          // Handle added/removed entries in caches (e.g., remove cache entries for deleted files)
-          oldEntries.forEach((oldEntry) => {
-            if (!newEntries.has(oldEntry)) {
-              // Invalidate caches associated with the removed entry 'oldEntry'
-              invalidateCacheForFile(oldEntry); // Or a more direct cache removal
-              console.log(
-                `Removing caches related to deleted entry: ${oldEntry}`
-              );
+            if (source.startsWith(VIRTUAL_PAGE)) {
+                // Ensure valid entry path before resolving
+                const entry = source.slice(VIRTUAL_PAGE.length);
+                if (getEntries(config).has(entry)) {
+                    // Check against current known entries
+                    return `\0${source}`; // Use original source with null byte
+                }
+                console.warn(`Attempted to resolve non-existent content entry: ${entry}`);
+                return undefined; // Don't resolve if entry doesn't exist
             }
-          });
+            if (source.startsWith(VIRTUAL_COMPONENT)) {
+                // No null byte needed if it's treated like a normal svelte file path for Vite/Svelte plugin?
+                // Or add one for consistency: return `\0${source}`;
+                // Check if it exists in the cache (optional, load will handle it)
+                // if (virtualComponentCache.has(source)) { ... }
+                return source; // Assuming Vite/Svelte handles .svelte resolution
+            }
+            return undefined; // Explicitly return undefined for other cases
+        },
+        async load(id, opts) {
+            // --- Load VIRTUAL_CONTENT list ---
+            if (id === RESOLVED_CONTENT) {
+                console.log('Loading:', RESOLVED_CONTENT);
+                const currentEntries = Array.from(getEntries(config)); // Get latest entries
+                const tpl = (p) => `'${p}': () => import('${VIRTUAL_PAGE}${p}')`;
+                const code = `export default { ${currentEntries.map(tpl).join(',\n')} };`;
+                // Cache this generated code? Only needs update if entries list changes.
+                return code;
+            }
+            // --- Load specific page content ---
+            // Match resolved ID: \0composably:content/about
+            if (id.startsWith(RESOLVED_PAGE)) {
+                const entryPath = id.slice(RESOLVED_PAGE.length);
+                console.log('Loading:', id, `(Entry: ${entryPath})`);
+                try {
+                    // Use the granular getter/loader
+                    const page = await getOrLoadPage(entryPath, config);
+                    // Stringify and replace components
+                    // Consider caching the result of this expensive operation too,
+                    // invalidated when the page content or component code changes.
+                    let code = `export default async () => (${JSON.stringify(page)});`;
+                    code = code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
+                        const isVirtual = compPath.startsWith(VIRTUAL_COMPONENT);
+                        const importPath = isVirtual
+                            ? `${compPath}.svelte` // Append suffix for virtual Svelte components
+                            : `/${config.componentRoot}/${compPath}.svelte`; // Path to real component
+                        return `"component":(await import('${importPath}')).default`;
+                    });
+                    return code;
+                }
+                catch (error) {
+                    console.error(`Error processing load for ${id}:`, error);
+                    return `export default async () => { throw new Error("Failed to load content for ${entryPath}"); };`;
+                }
+            }
+            // --- Load virtual component code ---
+            // Match ID like composably:component/MyVirtualComp.svelte
+            // Ensure the ID includes the suffix if resolveId doesn't add \0
+            const vcMatch = id.match(new RegExp(`^${VIRTUAL_COMPONENT.replace(':', '\\:')}(.+)${COMPONENT_SUFFIX}$`));
+            if (!vcMatch) {
+                return null; // Let other plugins handle other IDs
+            }
+            const vcName = `${VIRTUAL_COMPONENT}${vcMatch[1]}`; // Reconstruct the key used in the cache
+            console.log('Loading Virtual Component:', id, `(Name: ${vcName})`);
+            const cachedVC = virtualComponentCache.get(vcName);
+            if (!cachedVC) {
+                console.warn(`Virtual component data not found in cache for: ${vcName}`);
+                // Attempt to reload the source page? This might be complex.
+                // Or rely on HMR invalidation to fix it.
+                // For now, return an error/empty component.
+                return `<script>console.error("Virtual component ${vcName} not loaded.");</script>`;
+            }
+            const { data } = cachedVC;
+            const { component, ...props } = data; // Destructure the ComponentContent
+            // Including html enable {@html props.html}, which could be useful,
+            // If not it should be deleted upstream
+            const propKeys = Object.keys(props).filter((k) => k !== 'html');
+            // Exclude html from props declaration
+            const propString = `{ ${propKeys.join(', ')} } = $props();`;
+            const scriptString = propKeys.length > 0 ? `<script>\nlet ${propString};\n</script>\n` : '';
+            // Simple example: Render HTML content directly. Adapt if structure is different.
+            return `${scriptString}\n${props.html || ''}`;
+        },
+        async handleHotUpdate({ file, server }) {
+            console.log(`HMR triggered by: ${file}`);
+            const absolutePath = file; // Assuming 'file' is absolute path
+            // Check if the changed file affects any content entry
+            const affectedEntries = fileToContentEntries.get(absolutePath);
+            const modulesToReload = new Set();
+            if (affectedEntries && affectedEntries.size > 0) {
+                console.log(`File ${absolutePath} affects entries:`, affectedEntries);
+                // Invalidate caches for affected entries AND their virtual components
+                invalidateCacheForFile(absolutePath); // Use the helper
+                // Find the Vite modules to reload
+                for (const entryPath of affectedEntries) {
+                    // 1. Reload the page module (`\0composably:content/entryPath`)
+                    const pageModuleId = `${RESOLVED_PAGE}${entryPath}`;
+                    const pageMod = server.moduleGraph.getModuleById(pageModuleId);
+                    if (pageMod) {
+                        console.log(`Invalidating page module: ${pageModuleId}`);
+                        server.moduleGraph.invalidateModule(pageMod);
+                        modulesToReload.add(pageMod);
+                    }
+                    else {
+                        console.log(`Page module not found in graph (may not be loaded yet): ${pageModuleId}`);
+                    }
+                    // 2. Reload affected virtual component modules
+                    // We need the VCs associated *before* invalidation, so retrieve before full cleanup
+                    // (Alternatively, invalidateCacheForFile could return affected VC IDs)
+                    // Let's assume virtualComponentCache might still hold *stale* data linking back
+                    // A better way: iterate virtualComponentCache *before* invalidation
+                    for (const [vcId, vcData] of virtualComponentCache.entries()) {
+                        // Check cache before full clear
+                        if (vcData.sourceEntryPath === entryPath) {
+                            const vcModuleId = `${vcId}.svelte`; // Append suffix
+                            const vcMod = server.moduleGraph.getModuleById(vcModuleId);
+                            if (vcMod) {
+                                console.log(`Invalidating virtual component module: ${vcModuleId}`);
+                                server.moduleGraph.invalidateModule(vcMod);
+                                modulesToReload.add(vcMod);
+                            }
+                            else {
+                                console.log(`VC module not found in graph: ${vcModuleId}`);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                console.log(`File ${absolutePath} does not directly affect known content entries.`);
+                // Add logic here to check if the change affects the *list* of entries itself
+                // e.g., by comparing getEntries(config, true) with the cached 'entries' Set.
+                // If the list changes, invalidate RESOLVED_CONTENT.
+                const oldEntries = entries ? new Set(entries) : new Set();
+                const newEntries = getEntries(config, true); // Force refresh discovery
+                if (setsDiffer(oldEntries, newEntries)) {
+                    console.log('Entry list changed. Invalidating content list module.');
+                    entries = newEntries; // Update cache
+                    const listModule = server.moduleGraph.getModuleById(RESOLVED_CONTENT);
+                    if (listModule) {
+                        server.moduleGraph.invalidateModule(listModule);
+                        modulesToReload.add(listModule);
+                    }
+                    // Handle added/removed entries in caches (e.g., remove cache entries for deleted files)
+                    oldEntries.forEach((oldEntry) => {
+                        if (!newEntries.has(oldEntry)) {
+                            // Invalidate caches associated with the removed entry 'oldEntry'
+                            invalidateCacheForFile(oldEntry); // Or a more direct cache removal
+                            console.log(`Removing caches related to deleted entry: ${oldEntry}`);
+                        }
+                    });
+                }
+            }
+            if (modulesToReload.size > 0) {
+                console.log('Requesting reload for modules:', Array.from(modulesToReload).map((m) => m.id || m.url));
+                return Array.from(modulesToReload);
+            }
+            // If the file didn't affect any of our modules, let Vite handle it normally.
+            return undefined; // Explicitly return undefined if we didn't handle it
+        },
+        // Optional: configureServer hook to perform initial scan
+        configureServer(server) {
+            console.log('Composably Plugin: configureServer - Performing initial content scan...');
+            getEntries(config, true); // Initial discovery
+            // Optionally pre-load all content, but maybe better lazy on demand via load()
+            // getEntries(config).forEach(entryPath => getOrLoadPage(entryPath, config));
+            // Watch for changes in content directories explicitly if needed,
+            // although Vite usually handles this based on module dependencies.
+            // server.watcher.add(...)
         }
-      }
-      if (modulesToReload.size > 0) {
-        console.log(
-          'Requesting reload for modules:',
-          Array.from(modulesToReload).map((m) => m.id || m.url)
-        );
-        return Array.from(modulesToReload);
-      }
-      // If the file didn't affect any of our modules, let Vite handle it normally.
-      return undefined; // Explicitly return undefined if we didn't handle it
-    },
-    // Optional: configureServer hook to perform initial scan
-    configureServer(server) {
-      console.log(
-        'Composably Plugin: configureServer - Performing initial content scan...'
-      );
-      getEntries(config, true); // Initial discovery
-      // Optionally pre-load all content, but maybe better lazy on demand via load()
-      // getEntries(config).forEach(entryPath => getOrLoadPage(entryPath, config));
-      // Watch for changes in content directories explicitly if needed,
-      // although Vite usually handles this based on module dependencies.
-      // server.watcher.add(...)
-    }
-  };
+    };
 }
 // Helper to compare sets
 function setsDiffer(setA, setB) {
-  if (setA.size !== setB.size) return true;
-  for (const item of setA) {
-    if (!setB.has(item)) return true;
-  }
-  return false;
+    if (setA.size !== setB.size)
+        return true;
+    for (const item of setA) {
+        if (!setB.has(item))
+            return true;
+    }
+    return false;
 }
