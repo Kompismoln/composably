@@ -3,6 +3,7 @@ import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more fle
 import type { Plugin } from 'unified'; // <-- Import Plugin type
 
 export interface Config {
+  root: string;
   componentRoot: string; // Root directory for Svelte components
   contentRoot: string; // Root directory for content files
   indexFile: string; // Basename (without extension) of the file representing the root '/' path

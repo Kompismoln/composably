@@ -6,7 +6,7 @@ import type { ContentTraverser, ContentTraverserSync } from './types.d.ts';
 export const contentTraverser: ContentTraverser<any> = async ({
   obj,
   callback,
-  filter,
+  filter
 }) => {
   if (Array.isArray(obj)) {
     const newArr = await Promise.all(
@@ -29,7 +29,7 @@ export const contentTraverser: ContentTraverser<any> = async ({
         const newItem = await contentTraverser({
           obj: item,
           filter,
-          callback,
+          callback
         });
         return [key, newItem];
       })

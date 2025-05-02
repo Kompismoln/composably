@@ -1,10 +1,5 @@
 import { discoverContentPaths } from '$lib/content.js';
-
-const config = {
-  componentRoot: 'src/components',
-  contentRoot: 'src/content',
-  indexFile: 'index'
-};
+import composablyConfig from '../../../composably.config.js';
 
 export const entries = () =>
-  discoverContentPaths(config).map((path) => ({ path }));
+  discoverContentPaths(composablyConfig).map((path) => ({ path }));

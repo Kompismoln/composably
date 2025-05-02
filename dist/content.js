@@ -15,16 +15,19 @@ const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
  *
  * @param searchPath The site path (e.g., 'about/team' or '').
  * @param config The application configuration object.
- * @param onVirtualComponentFound A callback function invoked whenever a virtual
+ * @param reportVirtualComponent A callback function invoked whenever a virtual
  * component is successfully processed. It receives the processed component content.
  * @returns A Promise resolving to the fully processed page data (type PageContent).
  */
-export const loadContent = async (searchPath, config, onVirtualComponentFound // Callback function signature
+export const loadContent = async (searchPath, config, reportVirtualComponent, // Callback function signature
+reportFileDependency // Callback function signature
 ) => {
     // Return type is the Promise for the main content
     const fileSearchPath = searchPath === '' ? config.indexFile : searchPath;
     // Start by finding the root content file
-    let pageData = await findAndParseContentFile(fileSearchPath, config);
+    let { filePath, content: pageData } = await findAndParseContentFile(fileSearchPath, config);
+    // Report the main file as a dependency
+    reportFileDependency(path.resolve(config.root, filePath));
     // Apply transformations using the contentTraverser utility.
     // The traverser modifies pageData in place or returns a new object for pageData
     // to be reassigned to.
@@ -34,7 +37,7 @@ export const loadContent = async (searchPath, config, onVirtualComponentFound //
         filter: (obj) => typeof obj === 'object' &&
             obj !== null &&
             Object.keys(obj).some((key) => key.startsWith('_')),
-        callback: (obj) => loadAndAttachFragments(obj, config)
+        callback: (obj) => loadAndAttachFragments(obj, config, reportFileDependency)
     });
     // 2. Validate and transform regular components based on schema
     pageData = await contentTraverser({
@@ -53,7 +56,7 @@ export const loadContent = async (searchPath, config, onVirtualComponentFound //
             const processedComp = await processVirtualComponent(obj, config);
             // Call the callback with the processed component
             // Ensure processedComp has the necessary structure (e.g., component name)
-            onVirtualComponentFound(processedComp);
+            reportVirtualComponent(processedComp);
             // Return the processed component to potentially update the tree
             return processedComp;
         }
@@ -143,7 +146,8 @@ const findAndParseContentFile = async (searchPath, config) => {
             // though readFile will also throw ENOENT. Stat adds an extra check.
             // await fs.access(filePath); // Optional: uncomment if finer-grained
             // error handling is needed
-            return await parseFileContent(filePath);
+            const content = await parseFileContent(filePath);
+            return { filePath, content };
         }
         catch (error) {
             // Continue loop only if file not found or module import failed 
@@ -172,19 +176,24 @@ const findAndParseContentFile = async (searchPath, config) => {
  * @param config The application configuration object.
  * @returns A new object with fragments loaded and merged.
  */
-const loadAndAttachFragments = async (obj, config) => {
+const loadAndAttachFragments = async (obj, config, reportFileDependency // Callback function signature
+) => {
     // Base case: If it's not an object worth traversing, return as is.
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
         return obj;
     }
     let currentResult = { ...obj }; // Start with a shallow copy
-    const contentPath = (fragmentPath) => path.join(config.contentRoot, fragmentPath);
+    const contentPath = (fragmentPath) => {
+        const filePath = path.join(config.contentRoot, fragmentPath);
+        reportFileDependency(path.resolve(config.root, filePath));
+        return filePath;
+    };
     // 1. Handle root fragment reference ('_')
     if ('_' in currentResult && typeof currentResult._ === 'string') {
         const fragmentPath = contentPath(currentResult._);
         let fragmentContent = await parseFileContent(fragmentPath);
         // Recursively process fragments within the loaded fragment
-        fragmentContent = await loadAndAttachFragments(fragmentContent, config);
+        fragmentContent = await loadAndAttachFragments(fragmentContent, config, reportFileDependency);
         // Merge the fragment content, letting currentResult properties override
         // fragment properties if keys clash
         currentResult = { ...fragmentContent, ...currentResult };
@@ -204,7 +213,7 @@ const loadAndAttachFragments = async (obj, config) => {
         const newKey = key.slice(1); // Remove the leading underscore
         let fragmentContent = await parseFileContent(fragmentPath);
         // Recursively process fragments within the loaded fragment
-        fragmentContent = await loadAndAttachFragments(fragmentContent, config);
+        fragmentContent = await loadAndAttachFragments(fragmentContent, config, reportFileDependency);
         // Store processed fragment under the new key
         processedFragments[newKey] = fragmentContent;
         // Remove the reference key from the current result

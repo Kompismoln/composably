@@ -47,8 +47,7 @@ import type { ComponentContent, Config } from './types.d.ts'; // Assuming this d
 /**
  * Options for customizing the parsing process.
  */
-export interface ParseOptions {
-}
+export interface ParseOptions {}
 
 // --- Helper Functions ---
 
@@ -173,7 +172,7 @@ async function parseMarkdownString(
  */
 export const parseComponentContent = async (
   content: ComponentContent,
-  config: Config,
+  config: Config
 ): Promise<ComponentContent> => {
   const {
     markdownField = 'markdown', // Default field to parse
