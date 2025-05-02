@@ -18,7 +18,17 @@ import { shortHash } from './utils.js';
  */
 const handler = {
     get(target, prop) {
-        return prop in target ? target[prop] : z[prop];
+        // Check target first
+        if (prop in target) {
+            return target[prop];
+        }
+        // Check if prop is a valid own property of the imported 'z' object
+        if (Object.prototype.hasOwnProperty.call(z, prop)) {
+            // Assert that prop is a key of z before indexing
+            return z[prop];
+        }
+        // Return undefined or throw an error if prop is not found anywhere
+        return undefined;
     }
 };
 const process = async (content) => {

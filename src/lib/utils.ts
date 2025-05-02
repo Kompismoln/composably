@@ -7,11 +7,10 @@ export const contentTraverser: ContentTraverser<any> = async ({
   obj,
   callback,
   filter,
-  deep = true
 }) => {
   if (Array.isArray(obj)) {
     const newArr = await Promise.all(
-      obj.map((item) => contentTraverser({ obj: item, filter, callback, deep }))
+      obj.map((item) => contentTraverser({ obj: item, filter, callback }))
     );
     return newArr;
   }
@@ -31,7 +30,6 @@ export const contentTraverser: ContentTraverser<any> = async ({
           obj: item,
           filter,
           callback,
-          deep
         });
         return [key, newItem];
       })

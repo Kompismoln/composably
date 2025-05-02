@@ -1,84 +1,133 @@
 import type { ComponentType } from 'svelte';
-import type { ZodObject } from 'zod';
+import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more flexibility
+import type { Plugin } from 'unified'; // <-- Import Plugin type
 
 export interface Config {
-  componentRoot: string;
-  contentRoot: string;
-  indexFile: string;
+  componentRoot: string; // Root directory for Svelte components
+  contentRoot: string; // Root directory for content files
+  indexFile: string; // Basename (without extension) of the file representing the root '/' path
+
+  // Parsing/Plugin Options (conflated for now)
+  remarkPlugins?: Plugin[];
+  rehypePlugins?: Plugin[];
+  markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
+  outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
 }
 
+/**
+ * Represents the raw, parsed data from a fragment file.
+ * Can contain any structure defined within the fragment.
+ */
 export interface Fragment {
   [key: string]: unknown;
 }
 
-/* The component string should be a path to a file in $components (src/lib/components/) without
- * leading slash. Everything else is props.
+/**
+ * Represents a piece of content that should be rendered by a Svelte component.
+ * Requires the component path (relative to componentRoot, without .svelte)
+ * and allows any other properties to be passed as props.
  */
 export interface ComponentContent {
   component: string;
-  [key: string]: unknown;
+  [key: string]: unknown; // Props for the component
 }
 
-/* The data from some content file in src/lib/content
+/**
+ * Represents the fully processed data for a content page,
+ * ready to be used for rendering.
  */
 export interface PageContent {
-  title: string;
-  component?: string;
-  components?: ComponentContent[];
-  [key: string]: unknown;
+  title: string; // Mandatory title for the page
+  component?: string; // Optional top-level component for the page layout
+  components?: ComponentContent[]; // Optional list of components within the page body/structure
+  [key: string]: unknown; // Other page-specific data (e.g., from frontmatter)
 }
 
-/* For content traversers
+// --- Utility Types ---
+
+/** Type helper for extracting prop types from ComponentContent */
+export type ComponentProps<T extends ComponentContent> = Omit<T, 'component'>;
+
+/**
+ * Generic type for a function that traverses an object/array structure asynchronously.
  */
 export type ContentTraverser<T> = (handle: {
   obj: T;
-  filter: (val: T) => boolean;
-  callback: (val: T) => Promise<T>;
+  filter: (val: any) => boolean; // Filter can operate on any value during traversal
+  callback: (val: any) => Promise<any>; // Callback processes filtered values
 }) => Promise<T>;
 
+/**
+ * Generic type for a function that traverses an object/array structure synchronously.
+ */
 export type ContentTraverserSync<T> = (handle: {
   obj: T;
-  filter: (val: T) => boolean;
-  callback: (val: T) => T;
+  filter: (val: any) => boolean;
+  callback: (val: any) => any;
 }) => T;
 
-/* Shape of the return value of vite's glob, a ComponentMap of ComponentModules.
+
+// --- Svelte/Vite/Schema Related Types ---
+
+/**
+ * Expected structure of the module exported by a Svelte component file,
+ * including the component itself and an optional validation schema.
  */
 type ComponentModule = {
   default: ComponentType;
-  schema?: ZodObject;
+  // Allow any Zod schema, not just ZodObject, for flexibility
+  schema?: ZodSchema<any>; // Use base ZodSchema
 };
 
+/**
+ * Type representing the result of Vite's `import.meta.glob`, mapping
+ * import paths to async functions that load ComponentModules.
+ */
 type ComponentMap = Record<string, () => Promise<ComponentModule>>;
 
-/* A component module together with its props, ready to be rendered by svelte. */
-export interface ResolvedComponent<
-  T extends ComponentContent = ComponentContent
-> {
-  component: ComponentType;
-  props: ComponentProps<T>;
+/**
+ * Represents a Svelte component ready for rendering, coupling the
+ * ComponentType with its resolved (and potentially validated) props.
+ */
+export interface ResolvedComponent<T extends ComponentContent = ComponentContent> {
+  component: ComponentType; // The actual Svelte component constructor
+  props: ComponentProps<T>; // The props for the component instance
 }
 
-export type PreparedMarkdown = {
-  markdown: string;
-  options: Record<string, any>;
-};
+// --- Module Augmentations ---
 
-import 'vfile';
+// Augment 'vfile' data map to include custom metadata/properties used by plugins
+import 'vfile'; // Ensure vfile is imported for augmentation
 
 declare module 'vfile' {
   interface DataMap {
+    // Meta information, often passed down or used by multiple plugins
     meta?: {
       options?: {
+        // Example option used by a hypothetical heading plugin
         decreaseHeadings?: boolean;
+        // Add other shared options as needed
+        [key: string]: unknown; // Allow other options
       };
+      // Other meta fields? e.g., sourceFilePath?
     };
+    // Properties extracted or generated by plugins, intended to be merged
+    // back into the main content object later.
     props?: {
-      headings?: any[];
+      // Example: Table of contents generated by a heading plugin
+      headings?: { depth: number; slug: string; text: string }[];
+      // Add other extractable props as needed
+      [key: string]: unknown;
     };
+    // Allow other custom top-level data keys if necessary
+    [key: string]: unknown;
   }
 }
+
+// Declare the virtual module used to access content
 declare module 'composably:content' {
-  const content: any;
+  // Define the expected shape of the default export more precisely if possible
+  // For now, using 'any' based on original snippet. Could be Record<string, Promise<PageContent>>?
+  const content: Record<string, Promise<PageContent>>;
   export default content;
 }

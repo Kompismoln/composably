@@ -1,2 +1,3 @@
 import type { Plugin } from 'vite';
-export default function composably(options: Record<string, string>): Promise<Plugin[]>;
+import type { Config } from './types.d.ts';
+export default function composably(config: Config): Promise<Plugin[]>;

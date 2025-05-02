@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import path from 'node:path';
 import { globSync } from 'node:fs';
-import { parseFragment, setConfig } from '../lib/content.loader.js';
+import { __test__ } from '../lib/content.js';
 
 const config = {
   componentRoot: 'src/components',
@@ -9,33 +9,45 @@ const config = {
   indexFile: 'index'
 };
 
-setConfig(config);
+const attachFragment = __test__.loadAndAttachFragments;
+
+// Define expected structure for test results if possible
+interface TestResult1 {
+    // Expected props after fragment merging
+    foo?: string;
+    test?: { foo: string; };
+    test2?: { foo: string; };
+    // Add other expected props
+}
+interface TestResultDeep {
+     test: { test2: { foo: string; }; };
+}
 
 describe('fragments', () => {
   it('attaches fragments', async () => {
     let obj = {};
     obj = { _: 'test/_test-0.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config) as TestResult1;
     expect(obj).deep.equal({});
 
     obj = { _test: 'test/_test-0.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config) as TestResult1;
     expect(obj.test).toBeUndefined();
 
     obj = { _: 'test/_test-1.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config) as TestResult1;
     expect(obj.foo).eq('bar');
 
     obj = { _test: 'test/_test-1.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config) as TestResult1;
     expect(obj.test.foo).eq('bar');
 
     obj = { _: 'test/_test-2.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config) as TestResultDeep;
     expect(obj.test2.foo).eq('bar');
 
     obj = { _test: 'test/_test-2.yaml' };
-    obj = await parseFragment(obj);
+    obj = await attachFragment(obj, config);
     expect(obj.test.test2.foo).eq('bar');
   });
 });

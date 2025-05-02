@@ -1,10 +1,10 @@
-import { discoverContentPaths, setConfig } from '$lib/content.loader.js';
+import { discoverContentPaths } from '$lib/content.js';
 
-setConfig({
+const config = {
   componentRoot: 'src/components',
   contentRoot: 'src/content',
   indexFile: 'index'
-});
+};
 
-export const entries = () => discoverContentPaths().map((path) => ({ path }));
-
+export const entries = () =>
+  discoverContentPaths(config).map((path) => ({ path }));

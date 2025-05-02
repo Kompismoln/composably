@@ -1,4 +1,4 @@
-import type { PageLoad } from './$types';
+import type { PageLoad } from './$types.d.ts';
 import content from 'composably:content';
 import { error } from '@sveltejs/kit';
 
