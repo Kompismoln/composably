@@ -292,9 +292,7 @@ async function plugin(config: Config): Promise<Plugin> {
       // Exclude html from props declaration
       const propString = `{ ${propKeys.join(', ')} } = $props();`;
       const scriptString =
-        propKeys.length > 0
-          ? `<script>\nlet ${propString};\n</script>\n`
-          : '';
+        propKeys.length > 0 ? `<script>\nlet ${propString};\n</script>\n` : '';
 
       // Simple example: Render HTML content directly. Adapt if structure is different.
       return `${scriptString}\n${props.html || ''}`;

@@ -20,9 +20,6 @@ test('site components', async () => {
   expect(
     getByTestId('test-body').children[2].children[0].children[0].textContent
   ).toBe('title');
-  expect(
-    getByTestId('headings').children[0].textContent
-  ).toBe('h2 1');
-  expect(
-    getByTestId('remark-replaced').textContent).toBe('remark-replaced');
+  expect(getByTestId('headings').children[0].textContent).toBe('h2 1');
+  expect(getByTestId('remark-replaced').textContent).toBe('remark-replaced');
 });

@@ -1,10 +1,9 @@
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import fs from 'node:fs/promises';
-import { globSync } from 'node:fs'; // Keep sync based on "build only" comment
+import { globSync } from 'node:fs';
 import path from 'node:path';
-import { getSchema } from './schemas.js';
-import { parseComponentContent } from './parsers.js'; // Assuming previous refactor
+import { parseComponentContent } from './parsers.js';
 import type { ComponentContent, Config, PageContent } from './types.d.ts';
 import { contentTraverser } from './utils.js';
 
@@ -25,8 +24,8 @@ const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 export const loadContent = async (
   searchPath: string,
   config: Config,
-  reportVirtualComponent: (component: ComponentContent) => void, // Callback function signature
-  reportFileDependency: (filePath: string) => void // Callback function signature
+  reportVirtualComponent: (component: ComponentContent) => void,
+  reportFileDependency: (filePath: string) => void
 ): Promise<PageContent> => {
   // Return type is the Promise for the main content
 
@@ -37,7 +36,6 @@ export const loadContent = async (
     fileSearchPath,
     config
   );
-
 
   // Report the main file as a dependency
   if (!config.root) {
@@ -65,7 +63,7 @@ export const loadContent = async (
     filter: (obj) =>
       typeof obj?.component === 'string' &&
       !obj.component.startsWith('composably:'),
-    callback: (obj) => validateAndTransformComponent(obj, config)
+    callback: (obj) => config.validator(obj, reportFileDependency)
   });
 
   // 3. Process virtual components (e.g., parse markdown) AND trigger callback
@@ -299,59 +297,6 @@ const loadAndAttachFragments = async (
 };
 
 // --- Component Processing ---
-
-/**
- * Validates and potentially transforms component data using its schema.
- * @param content The component content object.
- * @param config The application configuration object.
- * @returns The validated/transformed component content.
- */
-const validateAndTransformComponent = async (
-  content: ComponentContent,
-  config: Config
-): Promise<ComponentContent> => {
-  // Assumes component name directly maps to a file path relative to
-  // componentRoot
-  const componentFilePath = `${config.componentRoot}/${content.component}.svelte`;
-  let schema;
-  try {
-    // getSchema needs error handling or to guarantee return shape
-    schema = await getSchema(componentFilePath);
-  } catch (error) {
-    console.warn(
-      `Could not load schema for component ${content.component} at ${componentFilePath}: ${error}`
-    );
-    return content; // Return original content if schema fails to load
-  }
-
-  // Only validate/transform if a schema with an 'spa' validator exists
-  if (!schema?.spa) {
-    return content;
-  }
-
-  try {
-    const result = await schema.spa(content); // Assuming spa is an async Zod-like schema parser
-
-    if (!result.success) {
-      // Provide detailed error reporting if possible
-      console.error(
-        `Validation failed for component '${content.component}':`,
-        result.error?.issues || result.error
-      );
-      throw new Error(
-        `Component '${content.component}' failed validation: ${result.error?.message || 'Unknown validation error'}`
-      );
-    }
-    return result.data; // Return validated (and potentially transformed) data
-  } catch (error) {
-    console.error(
-      `Error during validation/transformation of component '${content.component}':`,
-      error
-    );
-    // Re-throw or handle as appropriate for the application
-    throw error;
-  }
-};
 
 /**
  * Processes components marked as 'virtual', typically involving markdown

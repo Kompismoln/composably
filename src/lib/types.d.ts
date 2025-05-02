@@ -11,6 +11,7 @@ export interface Config {
   // Parsing/Plugin Options (conflated for now)
   remarkPlugins?: Plugin<any, Root>[];
   rehypePlugins?: Plugin<any, Root>[];
+  validator: (c: ComponentContent) => ComponentContent;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
 }

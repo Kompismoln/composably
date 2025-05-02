@@ -1,6 +1,6 @@
 import type { ComponentType } from 'svelte';
 import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more flexibility
-import type { Plugin } from 'unified'; // <-- Import Plugin type
+import type { Plugin } from 'unified';
 
 export interface Config {
   root?: string;
@@ -9,8 +9,9 @@ export interface Config {
   indexFile: string; // Basename (without extension) of the file representing the root '/' path
 
   // Parsing/Plugin Options (conflated for now)
-  remarkPlugins?: Plugin[];
-  rehypePlugins?: Plugin[];
+  remarkPlugins?: Plugin<any, Root>[];
+  rehypePlugins?: Plugin<any, Root>[];
+  validator: (c: ComponentContent) => ComponentContent;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
 }

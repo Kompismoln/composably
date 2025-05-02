@@ -9,7 +9,11 @@ export default function slots() {
 
       const data = node.data || (node.data = {});
 
-      const hast = h('span', { 'data-testid': 'remark-replaced' }, 'remark-replaced');
+      const hast = h(
+        'span',
+        { 'data-testid': 'remark-replaced' },
+        'remark-replaced'
+      );
 
       data.hName = hast.tagName;
       data.hProperties = hast.properties;
@@ -17,4 +21,3 @@ export default function slots() {
     });
   };
 }
-

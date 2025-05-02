@@ -127,13 +127,12 @@ async function parseMarkdownString(
   });
 
   // 5. Rehype Plugins
-  processor
-    .use(rehypeHighlight, {
-      // Default: Syntax highlighting
-      detect: true,
-      ignoreMissing: true,
-      languages: all
-    });
+  processor.use(rehypeHighlight, {
+    // Default: Syntax highlighting
+    detect: true,
+    ignoreMissing: true,
+    languages: all
+  });
 
   // 6. Inject custom Rehype plugins
   (config.rehypePlugins || []).forEach((plugin) => {

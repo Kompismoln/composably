@@ -3,7 +3,7 @@ import type { Plugin } from 'unified';
 import { classnames } from 'hast-util-classnames';
 import { visit } from 'unist-util-visit';
 
-const rehypeClassAdder:Plugin<[], Root> = () => {
+const rehypeClassAdder: Plugin<[], Root> = () => {
   return (tree: Root) => {
     visit(tree, 'element', (node) => {
       if (node.tagName === 'h2') {
@@ -11,6 +11,6 @@ const rehypeClassAdder:Plugin<[], Root> = () => {
       }
     });
   };
-}
+};
 
 export default rehypeClassAdder;

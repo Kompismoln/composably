@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import z from 'zod';
 import type { ComponentContent } from './types.d.ts';
 import { shortHash } from './utils.js';
@@ -130,17 +129,3 @@ const types = {
 };
 
 export const c = new Proxy(types, handler);
-
-export const getSchema = async (path: string) => {
-  const code = await fs.readFile(path, 'utf8');
-  const match = code.match(
-    /export\s+const\s+schema\s*=\s*(c\.content\(([\s\S]*?)\));/
-  );
-  if (!match) {
-    return;
-  }
-  const schemaDefinition = match[1];
-
-  const schema = new Function('c', `return ${schemaDefinition}`)(c);
-  return schema;
-};
