@@ -19,3 +19,8 @@
 <div data-testid="fragment-component">
   <fragment.component {...fragment} />
 </div>
+<div data-testid="headings">
+  {#each body.headings as heading }
+    <a href="#{heading.id}">{heading.text} {heading.depth}</a>
+  {/each}
+</div>

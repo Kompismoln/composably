@@ -12,10 +12,14 @@ test('site components', async () => {
     'hello'
   );
   expect(getByTestId('test-body').children[0].tagName).toBe('H2');
+  expect(getByTestId('test-body').children[0].id).toBe('h2');
   expect(getByTestId('test-body').children[1].textContent).toBe(
     '{{title}}="Hello"'
   );
   expect(
     getByTestId('test-body').children[2].children[0].children[0].textContent
   ).toBe('title');
+  expect(
+    getByTestId('headings').children[0].textContent
+  ).toBe('h2 1');
 });

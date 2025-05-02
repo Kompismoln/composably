@@ -38,7 +38,11 @@ export const loadContent = async (
     config
   );
 
+
   // Report the main file as a dependency
+  if (!config.root) {
+    throw new Error('The config.root property has not been set.');
+  }
   reportFileDependency(path.resolve(config.root, filePath));
 
   // Apply transformations using the contentTraverser utility.

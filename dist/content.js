@@ -27,6 +27,9 @@ reportFileDependency // Callback function signature
     // Start by finding the root content file
     let { filePath, content: pageData } = await findAndParseContentFile(fileSearchPath, config);
     // Report the main file as a dependency
+    if (!config.root) {
+        throw new Error('The config.root property has not been set.');
+    }
     reportFileDependency(path.resolve(config.root, filePath));
     // Apply transformations using the contentTraverser utility.
     // The traverser modifies pageData in place or returns a new object for pageData
