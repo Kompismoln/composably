@@ -1,12 +1,12 @@
-# **Composably in 5 Minutes: Supercharge Your Svelte Content ✨**
+# **Composably ✨**
 
 Tired of juggling Markdown files, API calls, and complex data fetching for your SvelteKit site's content? Wish your content was type-safe, validated, and intuitively rendered with your Svelte components?
 
 **Enter Composably.** It transforms your content into validated component-ready data at build time.
 
-## **1\. Setup (Seconds\!)**
-
-npm install composably \# or yarn add / pnpm add
+## **1. Setup**
+```
+npm install composably # or yarn add / pnpm add
 
 In your vite.config.ts, swap sveltekit() for composably():
 
@@ -14,102 +14,111 @@ In your vite.config.ts, swap sveltekit() for composably():
 import { defineConfig } from 'vite';  
 // import { sveltekit } from '@sveltejs/kit/vite'; // Remove this  
 import { composably } from 'composably/vite'; // Import this
+import config from '$lib/config';
 
 export default defineConfig({  
-  plugins: \[  
+  plugins: [  
     // sveltekit() // Replace this...  
-    composably() // ...with this\! (Pass config if needed)  
-  \]  
+    composably(config.composably) // ...with this!
+  ]  
 });
-
+```
 Now you have the magic import:
-
+```
 // src/routes/+page.svelte (example)  
 import content from 'composably:content';
-
-## **2\. Your First Page (Markdown \+ Component)**
+```
+## **2. Your First Page (Markdown + Component)**
 
 Create content/index.md:
+```
+---
+component: Page # Tells Composably which component to use  
+title: Hello Composably!  
+---
 
-\---  
-component: Page \# Tells Composably which component to use  
-title: Hello Composably\!  
-\---
-
-Welcome to your first \*\*Composable\*\* page\! Isn't this easy?  
+Welcome to your first **Composable** page! Isn't this easy?  
 Write standard Markdown here.
 
-\#\# A Subheading
+## A Subheading
 
-This will be automatically extracted\!
+This will be automatically extracted!
+```
 
 Create the component src/components/Page.svelte:
 
-\<script module\>  
+```
+<script module>  
   import { c } from 'composably/schemas'; // Schema helpers
 
-  export const schema \= c.content({  
+  export const schema = c.content({  
     title: c.string(), // Expect a string title  
-    body: c.markdown() // Expect Markdown content (processed\!)  
+    body: c.markdown() // Expect Markdown content (processed!)  
   });  
-\</script\>
+</script>
 
-\<script\>  
-  // Props are validated against the schema above\!  
+<script>  
+  // Props are validated against the schema above!  
   // Note: 'body' includes processed content AND metadata like headings  
-  let { title, body } \= $props();  
-\</script\>
+  let { title, body } = $props();  
+</script>
 
-\<h1\>{title}\</h1\>
+<h1>{title}</h1>
 
-{\#if body.headings && body.headings.length \> 0}  
-  \<nav\>  
-    \<strong\>On this page:\</strong\>  
-    \<ul\>  
-      {\#each body.headings as heading}  
-        \<li\>\<a href="\#{heading.id}"\>{heading.text}\</a\>\</li\>  
+{#if body.headings && body.headings.length > 0}  
+  <nav>  
+    <strong>On this page:</strong>  
+    <ul>  
+      {#each body.headings as heading}  
+        <li><a href="#{heading.id}">{heading.text}</a></li>  
       {/each}  
-    \</ul\>  
-  \</nav\>  
+    </ul>  
+  </nav>  
 {/if}
 
-\<body.component {...body} /\>
+<body.component {...body} />
+```
 
 Load and render in src/routes/+page.svelte:
 
-\<script\>  
+```
+<script>  
   import content from 'composably:content';
 
-  // Load content/index.(md|yaml) \- notice the '' path  
-  const pageContent \= await (await content\[''\]()).default();  
-\</script\>
+  // Load content/index.(md|yaml) - notice the '' path  
+  const pageContent = await (await content['']()).default();  
+</script>
 
-\<pageContent.component {...pageContent.props} /\>
+<pageContent.component {...pageContent.props} />
+```
 
-Boom\! Validated, component-driven content from Markdown, with automatic heading extraction\!
+Boom! Validated, component-driven content from Markdown, with automatic heading extraction!
 
-## **3\. Structured Data (YAML Power)**
+## **3. Structured Data (YAML Power)**
 
-Need structured lists, like features? Use YAML\!
+Need structured lists, like features? Use YAML!
 
 Create content/features.yaml:
 
+```
 component: FeatureList  
 title: Awesome Features  
 features:  
-  \- name: Type-Safe Content  
-    description: Catch errors at build time, not runtime\!  
-  \- name: Component-Driven  
+  - name: Type-Safe Content  
+    description: Catch errors at build time, not runtime!  
+  - name: Component-Driven  
     description: Map content directly to Svelte components.  
-  \- name: Flexible Formats  
+  - name: Flexible Formats  
     description: Use Markdown OR YAML based on your needs.
+```
 
 Create src/components/FeatureList.svelte:
 
-\<script module\>  
+```
+<script module>  
   import { c } from 'composably/schemas';
 
-  export const schema \= c.content({  
+  export const schema = c.content({  
     title: c.string(),  
     // Use array/object validators (assuming Zod-like helpers)  
     features: c.array(c.object({  
@@ -117,83 +126,93 @@ Create src/components/FeatureList.svelte:
       description: c.string()  
     }))  
   });  
-\</script\>
+</script>
 
-\<script\>  
-  let { title, features } \= $props();  
-\</script\>
+<script>  
+  let { title, features } = $props();  
+</script>
 
-\<h2\>{title}\</h2\>  
-\<ul\>  
-  {\#each features as feature}  
-    \<li\>\<strong\>{feature.name}:\</strong\> {feature.description}\</li\>  
-  {/each}  
-\</ul\>
+<h2>{title}</h2>  
+<ul>  
+  {#each features as feature}  
+    <li><strong>{feature.name}:</strong> {feature.description}</li>  
+  {/each}
+</ul>
+```
 
-Load it: const features \= await (await content\['features'\]()).default();
+Load it: `const features = await (await content['features']()).default()`;
 
-## **4\. Reusable Content (Fragments \- DRY\!)**
+## **4. Reusable Content (Fragments - DRY!)**
 
-Define common content once, reuse everywhere. Perfect for author bios\!
+Define common content once, reuse everywhere.
 
-Create content/\_author-jane.yaml (leading \_ often ignored in routing):
+Create content/_author-jane.yaml (leading _ ignored in route discovery):
 
+```
 component: AuthorBio  
 name: Jane Doe  
 bio: Expert writer exploring Composably.
+```
 
 Create src/components/AuthorBio.svelte:
 
-\<script module\>  
+```
+<script module>  
   import { c } from 'composably/schemas';  
-  export const schema \= c.content({ name: c.string(), bio: c.string() });  
-\</script\>  
-\<script\> let { name, bio } \= $props(); \</script\>  
-\<span\>\<strong\>{name}\</strong\> ({bio})\</span\>
+  export const schema = c.content({ name: c.string(), bio: c.string() });  
+</script>  
+<script> let { name, bio } = $props(); </script>  
+<span><strong>{name}</strong> ({bio})</span>
+```
 
 Reference it in content/blog/my-post.md:
 
-\---  
+```
+---  
 component: BlogPost  
 title: My Awesome Post  
-author: \_author-jane.yaml \# \<-- Reference the fragment\!  
-\---  
+author: _author-jane.yaml # <-- Reference the fragment!  
+---  
 Blog content here...  
-\`\`\`src/components/BlogPost.svelte\` schema expects it:
+```
 
-\`\`\`svelte  
-\<script module\>  
+src/components/BlogPost.svelte` schema expects it:
+
+```svelte  
+<script module>  
   import { c } from 'composably/schemas';  
-  export const schema \= c.content({  
+  export const schema = c.content({  
     title: c.string(),  
-    // Validate the linked fragment data against AuthorBio's schema\!  
-    author: c.component(\['AuthorBio'\]),  
+    // Validate the linked fragment data against AuthorBio's schema!  
+    author: c.component(['AuthorBio']),  
     body: c.markdown()  
   });  
-\</script\>  
-\<script\> let { title, author, body } \= $props(); \</script\>
+</script>  
+<script> let { title, author, body } = $props(); </script>
 
-\<article\>  
-  \<h1\>{title}\</h1\>  
-  \<p\>By \<author.component {...author} /\>\</p\> \<body.component {...body} /\>  
-\</article\>
+<article>  
+  <h1>{title}</h1>  
+  <p>By <author.component {...author} /></p> <body.component {...body} />  
+</article>
+```
 
-## **5\. Embedding Components (Slots \- Total Control\!)**
+## **5. Embedding Components**
 
-Need a carousel or alert *inside* your Markdown flow? Use slots\!
+Need a carousel or alert *inside* your Markdown flow? Use slots!
 
 Define slot data in content/another-post.md:
 
-\---  
+```
+---  
 component: Page  
 title: Embedding with Slots  
 slots:  
-  carousel: \# Slot name  
-    component: Swiper \# Component for the slot  
-    slides: \# Props for the Swiper component  
-      \- image: /img1.jpg  
-      \- image: /img2.jpg  
-\---
+  carousel: # Slot name  
+    component: Swiper # Component for the slot  
+    slides: # Props for the Swiper component  
+      - image: /img1.jpg  
+      - image: /img2.jpg  
+---
 
 Here is some introductory text.
 
@@ -202,40 +221,41 @@ Now, right here, I want my image carousel:
 ::carousel
 
 And the text continues after the embedded component. How cool is that?
+```
 
 Ensure src/components/Page.svelte schema includes slots:
 
-// \<script module\> in Page.svelte  
+```
+// <script module> in Page.svelte  
 import { c } from 'composably/schemas';  
-export const schema \= c.content({  
+export const schema = c.content({  
   title: c.string(),  
   body: c.markdown(), // Processes ::carousel using 'slots' data  
-  slots: c.slots({ // Define allowed slots & their components  
-      carousel: c.component(\['Swiper'\])  
-  }).optional()  
+  slots: c.slots()  
 });  
 // ... rest of Page.svelte ...
+```
 
-Create src/components/Swiper.svelte with its schema (slides: c.array(...)). Composably's c.markdown processor magically replaces ::carousel with the rendered Swiper component\!
+Create src/components/Swiper.svelte with its schema (slides: c.array(...)). Composably's c.markdown processor magically replaces ::carousel with the rendered Swiper component!
 
-## **6\. Built-in Power & Extensibility**
+## **6. Built-in Power & Extensibility**
 
 Composably comes with the following features out-of-the-box:
 
 * **Markdown Processing:** Includes standard Markdown, GitHub Flavored Markdown, and syntax highlighting for code blocks.  
-* **Heading Extraction:** As seen in step 2, the body.headings prop on your c.markdown() field gives you structured access to all h1-h6 tags (text, id, depth) – perfect for auto-generating Tables of Contents\!  
+* **Heading Extraction:** As seen in step 2, the body.headings prop on your c.markdown() field gives you structured access to all h1-h6 tags (text, id, depth) – perfect for auto-generating Tables of Contents!  
 * **Plugin Ecosystem:** Need more? Composably integrates with the **Remark** (Markdown AST) and **Rehype** (HTML AST) plugin ecosystems. Add plugins to:  
   * Automatically add CSS classes (e.g., integrate with Tailwind or DaisyUI).  
   * Optimize images.  
   * Add custom containers or directives.  
   * Generate SEO tags.  
-  * *...and more\!*
+  * *...and more!*
 
 ## Contribution and disclaimer
 
 This package is in early alpha, don't rely on it yet!
 Testers are much welcome.
-The /dist is included in the repo so `npm install kompismoln/composably`
+The `/dist` is included in the repo so `npm install kompismoln/composably`
 works for now.
 
 1.  Clone the repository:

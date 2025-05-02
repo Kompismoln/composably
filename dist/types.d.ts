@@ -2,6 +2,11 @@ import type { ComponentType } from 'svelte';
 import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more flexibility
 import type { Plugin } from 'unified';
 
+type Validator = (
+  content: ComponentContent,
+  reportFileDependency: (filePath: string) => void
+) => Promise<Content>;
+
 export interface Config {
   root?: string;
   componentRoot: string; // Root directory for Svelte components
@@ -11,7 +16,7 @@ export interface Config {
   // Parsing/Plugin Options (conflated for now)
   remarkPlugins?: Plugin<any, Root>[];
   rehypePlugins?: Plugin<any, Root>[];
-  validator: (c: ComponentContent) => ComponentContent;
+  validator: Validator;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
 }
