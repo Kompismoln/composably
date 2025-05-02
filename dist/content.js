@@ -150,7 +150,7 @@ const findAndParseContentFile = async (searchPath, config) => {
             return { filePath, content };
         }
         catch (error) {
-            // Continue loop only if file not found or module import failed 
+            // Continue loop only if file not found or module import failed
             // specifically because of missing file
             if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(error.code)) {
                 continue;

@@ -1,7 +1,7 @@
 /* Take an anything and traverse all objects and arrays.
  * Call callback on non-empty objects when filter returns true.
  */
-export const contentTraverser = async ({ obj, callback, filter, }) => {
+export const contentTraverser = async ({ obj, callback, filter }) => {
     if (Array.isArray(obj)) {
         const newArr = await Promise.all(obj.map((item) => contentTraverser({ obj: item, filter, callback })));
         return newArr;
@@ -18,7 +18,7 @@ export const contentTraverser = async ({ obj, callback, filter, }) => {
             const newItem = await contentTraverser({
                 obj: item,
                 filter,
-                callback,
+                callback
             });
             return [key, newItem];
         }));
