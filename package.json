@@ -42,7 +42,10 @@
     },
     "./schemas": {
       "types": "./dist/schemas.d.ts",
-      "svelte": "./dist/schemas.js"
+      "import": "./dist/schemas.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts"
     }
   },
   "peerDependencies": {
