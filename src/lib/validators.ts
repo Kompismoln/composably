@@ -1,11 +1,11 @@
 import fs from 'node:fs/promises';
-import { c } from '../lib/schemas.js';
-import config from '../../composably.config.js';
-import type { ComponentContent } from '$lib/types.js';
+import { c } from 'composably/schemas';
+import type { Config, ComponentContent } from './types.js';
 
-const validator = async (
+export const colocate = async (
   content: ComponentContent,
-  reportFileDependency: (filePath: string) => void
+  reportFileDependency: (filePath: string) => void,
+  config: Config
 ) => {
   const componentFilePath = `${config.componentRoot}/${content.component}.svelte`;
 
@@ -35,5 +35,3 @@ const getSchema = async (path: string) => {
 
   return new Function('c', `return ${schemaDefinition}`)(c);
 };
-
-export default validator;

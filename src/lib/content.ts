@@ -6,6 +6,7 @@ import path from 'node:path';
 import { parseComponentContent } from './parsers.js';
 import type { ComponentContent, Config, PageContent } from './types.d.ts';
 import { contentTraverser } from './utils.js';
+import { colocate } from './validators.js';
 
 const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 
@@ -63,7 +64,10 @@ export const loadContent = async (
     filter: (obj) =>
       typeof obj?.component === 'string' &&
       !obj.component.startsWith('composably:'),
-    callback: (obj) => config.validator(obj, reportFileDependency)
+    callback: (obj) => {
+      const validator = (config.validator ||  colocate);
+      return validator(obj, reportFileDependency, config);
+    }
   });
 
   // 3. Process virtual components (e.g., parse markdown) AND trigger callback

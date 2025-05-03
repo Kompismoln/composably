@@ -1,7 +1,7 @@
 # **Composably ✨**
 
 Transforms your content (markdown, yaml, json etc.)
-into validated renderable data at build time.
+into validated renderable data - at build time.
 
 ## **1. Setup**
 Create a new SvelteKit (^2.20.0) project or use an existing, then install composably:
@@ -39,7 +39,7 @@ export default defineConfig({
 ```
 
 The plugin exposes a pre-built virtual module `composably:content` with all
-content in contentRoot:
+content under `contentRoot`:
 
 ```typescript
 // src/routes/your-ssg/[...path]/+page.ts
@@ -56,7 +56,7 @@ Create index.md in contentRoot:
 
 ```markdown
 ---
-component: Page # This will be replaced by the Page.svelte component
+component: Page # This will be replaced by a reference to the Page.svelte component
 title: Hello Composably!
 ---
 
@@ -66,14 +66,14 @@ Write standard Markdown here, it will be available as
 
 ## Features
 
-- The headings is extracted for a TOC
+- The headings are extracted for a TOC
 - Components can be inserted in the document using ::slots
 - Frontmatter can be interpolated with double braces {{title}}
 - Emojis, definition lists, extended tables and more...
 
 ```
 
-Create a component Page.svelte in componentRoot:
+Create a component Page.svelte in `componentRoot`:
 
 ```html
 <script module>
@@ -107,7 +107,7 @@ Create a component Page.svelte in componentRoot:
 <body.component {...body} />
 ```
 
-Load in src/routes/+page.ts:
+Load in `src/routes/+page.ts`:
 
 ```typescript
 import content from 'composably:content';
@@ -117,7 +117,7 @@ export const load = async ({ params }) => {
 };
 ```
 
-Render in src/routes/+page.svelte:
+Render in `src/routes/+page.svelte`:
 
 ```html
 <script>
@@ -127,15 +127,15 @@ Render in src/routes/+page.svelte:
 <page.component {...page} />
 ```
 
-Boom! Validated, pre-loaded content from Markdown.
+Boom! Validated, pre-loaded content from markdown.
 
 ## **3. Structured Data (YAML Power)**
 
 Need structured lists, like features? Use YAML!
 
-Create content/features.yaml:
+Create `content/features.yaml`:
 
-```
+```yaml
 component: FeatureList
 title: Awesome Features
 features:
@@ -147,9 +147,9 @@ features:
     description: Use Markdown OR YAML based on your needs.
 ```
 
-Create src/components/FeatureList.svelte:
+Create `src/components/FeatureList.svelte`:
 
-```
+```typescript
 <script module>
   import { c } from 'composably/schemas';
 
@@ -180,17 +180,17 @@ Load it: `const features = await content('features')`;
 
 Define common content once, reuse everywhere.
 
-Create content/_author-jane.yaml (leading _ ignored in route discovery):
+Create `content/_author-jane.yaml` (leading _ ignored in route discovery):
 
-```
+```yaml
 component: AuthorBio
 name: Jane Doe
 bio: Expert writer exploring Composably.
 ```
 
-Create src/components/AuthorBio.svelte:
+Create `src/components/AuthorBio.svelte`:
 
-```
+```markdown
 <script module>
   import { c } from 'composably/schemas';
   export const schema = c.content({ name: c.string(), bio: c.string() });
@@ -199,9 +199,9 @@ Create src/components/AuthorBio.svelte:
 <span><strong>{name}</strong> ({bio})</span>
 ```
 
-Reference it in content/blog/my-post.md:
+Reference it in `content/blog/my-post.md`:
 
-```
+```markdown
 ---
 component: BlogPost
 title: My Awesome Post
@@ -210,7 +210,7 @@ author: _author-jane.yaml # <-- Reference the fragment!
 Blog content here...
 ```
 
-src/components/BlogPost.svelte` schema expects it:
+`src/components/BlogPost.svelte` schema expects it:
 
 ```svelte
 <script module>
