@@ -1,58 +1,81 @@
 # **Composably ✨**
 
-Transforms your content (markdown, yaml, json etc.) into validated component-ready data at build time.
+Transforms your content (markdown, yaml, json etc.)
+into validated renderable data at build time.
 
 ## **1. Setup**
+Create a new SvelteKit (^2.20.0) project or use an existing, then install composably:
 
-```
-npm install composably # or yarn add / pnpm add
+```bash
+npm install composably
 ```
 
-In your vite.config.ts, swap sveltekit() for composably():
+In your vite.config.ts, add composably() and pass a config with the locations
+for your content and components. Replace sveltekit if it exists.
 
-```
+```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
 // import { sveltekit } from '@sveltejs/kit/vite'; // Remove this
 import { composably } from 'composably/vite'; // Import this
-import config from '$lib/config';
+
+const config = {
+  componentRoot: 'src/components',
+  contentRoot: 'src/content',
+  //optional
+  remarkPlugins: [],
+  rehypePlugins: [],
+};
+
+export default config;
+
 
 export default defineConfig({
   plugins: [
     // sveltekit() // Replace this...
-    composably(config.composably) // ...with this!
+    composably(config) // ...with this!
   ]
 });
 ```
 
-The plugin exposes a virtual module `composably:content` with all your content:
+The plugin exposes a pre-built virtual module `composably:content` with all
+content in contentRoot:
 
-```
-// src/routes/+page.svelte (example)
+```typescript
+// src/routes/your-ssg/[...path]/+page.ts
 import content from 'composably:content';
+const page = await content(path);
+
+// src/routes/your-ssg/[...path]/+page.svelte
+<page.component {...page} />
 ```
 
 ## **2. Your First Page (Markdown + Component)**
 
-Create content/index.md:
+Create index.md in contentRoot:
 
-```
+```markdown
 ---
-component: Page # Tells Composably which component to use
+component: Page # This will be replaced by the Page.svelte component
 title: Hello Composably!
 ---
 
-Welcome to your first **Composable** page! Isn't this easy?
-Write standard Markdown here.
+Welcome to your first **Composable** page!
+Write standard Markdown here, it will be available as
+`body` along with the frontmatter.
 
-## A Subheading
+## Features
 
-This will be automatically extracted!
+- The headings is extracted for a TOC
+- Components can be inserted in the document using ::slots
+- Frontmatter can be interpolated with double braces {{title}}
+- Emojis, definition lists, extended tables and more...
+
 ```
 
-Create the component src/components/Page.svelte:
+Create a component Page.svelte in componentRoot:
 
-```
+```html
 <script module>
   import { c } from 'composably/schemas'; // Schema helpers
 
@@ -96,7 +119,7 @@ export const load = async ({ params }) => {
 
 Render in src/routes/+page.svelte:
 
-```
+```html
 <script>
   let { page } = $props();
 </script>
@@ -104,7 +127,7 @@ Render in src/routes/+page.svelte:
 <page.component {...page} />
 ```
 
-Boom! Validated, pre-loaded content from Markdown, with automatic heading extraction!
+Boom! Validated, pre-loaded content from Markdown.
 
 ## **3. Structured Data (YAML Power)**
 
