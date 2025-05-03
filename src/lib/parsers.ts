@@ -4,7 +4,6 @@
  * Features:
  * - Parses markdown fields within a ComponentContent object.
  * - Allows injection of custom remark and rehype plugins.
- * - Add basic DaisyUI classes (via default plugin).
  * - Decrease headings and create TOC (via default plugin).
  * - Set placeholders for slots (via default plugin).
  * - Unicode emoji support (via default plugin).

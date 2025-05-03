@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 
 test('site components', async () => {
   const { component, ...props } = await (await content['']()).default();
-  const { getByTestId } = render(component, { props });
+  const { getByTestId, getByLabelText } = render(component, { props });
 
   expect(getByTestId('h1').innerHTML).toBe('Hello');
   expect(getByTestId('slot-prop').innerHTML).toBe('hello');
@@ -22,4 +22,5 @@ test('site components', async () => {
   ).toBe('title');
   expect(getByTestId('headings').children[0].textContent).toBe('h2 1');
   expect(getByTestId('remark-replaced').textContent).toBe('remark-replaced');
+  expect(getByLabelText('tada emoji').textContent).toBe('🎉');
 });
