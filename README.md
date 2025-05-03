@@ -1,16 +1,16 @@
 # **Composably ✨**
 
-Tired of juggling Markdown files, API calls, and complex data fetching for your SvelteKit site's content? Wish your content was type-safe, validated, and intuitively rendered with your Svelte components?
-
-**Enter Composably.** It transforms your content into validated component-ready data at build time.
+Transforms your content (markdown, yaml, json etc.) into validated component-ready data at build time.
 
 ## **1. Setup**
 
 ```
 npm install composably # or yarn add / pnpm add
+```
 
 In your vite.config.ts, swap sveltekit() for composably():
 
+```
 // vite.config.ts
 import { defineConfig } from 'vite';
 // import { sveltekit } from '@sveltejs/kit/vite'; // Remove this
@@ -25,7 +25,7 @@ export default defineConfig({
 });
 ```
 
-Now you have the magic import:
+The plugin exposes a virtual module `composably:content` with all your content:
 
 ```
 // src/routes/+page.svelte (example)
@@ -58,7 +58,7 @@ Create the component src/components/Page.svelte:
 
   export const schema = c.content({
     title: c.string(), // Expect a string title
-    body: c.markdown() // Expect Markdown content (processed!)
+    body: c.markdown() // Markdown will be automatically processed
   });
 </script>
 
@@ -84,20 +84,27 @@ Create the component src/components/Page.svelte:
 <body.component {...body} />
 ```
 
-Load and render in src/routes/+page.svelte:
+Load in src/routes/+page.ts:
+
+```typescript
+import content from 'composably:content';
+
+export const load = async ({ params }) => {
+  return await content(params.path);
+};
+```
+
+Render in src/routes/+page.svelte:
 
 ```
 <script>
-  import content from 'composably:content';
-
-  // Load content/index.(md|yaml) - notice the '' path
-  const pageContent = await (await content['']()).default();
+  let { page } = $props();
 </script>
 
-<pageContent.component {...pageContent.props} />
+<page.component {...page} />
 ```
 
-Boom! Validated, component-driven content from Markdown, with automatic heading extraction!
+Boom! Validated, pre-loaded content from Markdown, with automatic heading extraction!
 
 ## **3. Structured Data (YAML Power)**
 
@@ -125,7 +132,6 @@ Create src/components/FeatureList.svelte:
 
   export const schema = c.content({
     title: c.string(),
-    // Use array/object validators (assuming Zod-like helpers)
     features: c.array(c.object({
       name: c.string(),
       description: c.string()
@@ -145,7 +151,7 @@ Create src/components/FeatureList.svelte:
 </ul>
 ```
 
-Load it: `const features = await (await content['features']()).default()`;
+Load it: `const features = await content('features')`;
 
 ## **4. Reusable Content (Fragments - DRY!)**
 

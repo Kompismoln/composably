@@ -196,9 +196,14 @@ async function plugin(config) {
             if (id === RESOLVED_CONTENT) {
                 logLoad('Loading:', RESOLVED_CONTENT);
                 const currentEntries = Array.from(getEntries(config)); // Get latest entries
-                const tpl = (p) => `'${p}': () => import('${VIRTUAL_PAGE}${p}')`;
-                const code = `export default { ${currentEntries.map(tpl).join(',\n')} };`;
-                // Cache this generated code? Only needs update if entries list changes.
+                // Generate case statements for each entry
+                const cases = currentEntries.map(p => `case '${p}': return (await import('${VIRTUAL_PAGE}${p}')).default();`).join('\n');
+                // Generate the code for the virtual module, exporting a single async function
+                const code = `
+export default async function loadPageContent(path) {
+switch (path) {
+${cases}
+default: throw new Error(\`Unknown content path: \${path}\`);}}`;
                 return code;
             }
             // --- Load specific page content ---
