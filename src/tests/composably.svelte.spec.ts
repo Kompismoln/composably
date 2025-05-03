@@ -2,6 +2,12 @@ import { render } from '@testing-library/svelte';
 import content from 'composably:content';
 import { expect, test } from 'vitest';
 
+test('site about', async () => {
+  const { component, ...props } = await content('about');
+  const { getByTestId } = render(component, { props });
+  expect(getByTestId('h1').innerHTML).toBe('About');
+
+});
 test('site 404', async () => {
   const noPagePromise = content('no-page');
   await expect(noPagePromise).rejects.toThrow('Unknown content path: no-page');
