@@ -6,7 +6,7 @@
   <page.component {...page} />
 {/if}
 {#if page.components}
-  {#each page.components as component}
-    <component.component {...component} />
+  {#each page.components as section}
+    <section.component {...section} />
   {/each}
 {/if}

@@ -323,7 +323,7 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
       }
 
       const { data } = cachedVC;
-      const { component, ...props } = data; // Destructure the SourceComponentContent
+      const { component: _, ...props } = data; // Destructure the SourceComponentContent
 
       // Including html enable {@html props.html}, which could be useful,
       // If not it should be deleted upstream

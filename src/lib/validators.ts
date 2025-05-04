@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import { c } from 'composably/schemas';
+import { c } from './schemas.js';
 import type { Config, ComponentContent } from './types.js';
 
 export const colocate = async (

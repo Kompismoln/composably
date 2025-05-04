@@ -21,16 +21,16 @@ interface TestResult2Root {
 const noop = (_: string) => {};
 
 test('fragments', async () => {
-  let obj: any = {}; // Start with any or unknown
+  let obj: Record<string, unknown> = {};
 
   // Test case 1
   obj = { _: 'test/_test-0.yaml' }; // Assuming _test-0.yaml is empty or results in {}
-  let result0 = await loadAndAttachFragments<{}>(obj, config, noop); // Explicitly expect empty
+  const result0 = await loadAndAttachFragments<object>(obj, config, noop); // Explicitly expect empty
   expect(result0).deep.equal({});
 
   // Test case 2
   obj = { _test: 'test/_test-0.yaml' }; // Assuming _test-0.yaml results in {}
-  let result0Named = await loadAndAttachFragments<{ test?: {} }>(
+  const result0Named = await loadAndAttachFragments<{ test?: object }>(
     obj,
     config,
     noop
@@ -44,13 +44,13 @@ test('fragments', async () => {
 
   // Test case 3
   obj = { _: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
-  let result1 = await loadAndAttachFragments<TestResult1>(obj, config, noop);
+  const result1 = await loadAndAttachFragments<TestResult1>(obj, config, noop);
   expect(result1.foo).eq('bar');
 
   // Test case 4
   obj = { _test: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
   // Expect { test: { foo: 'bar' } } which fits TestResult1's optional 'test' prop shape
-  let result1Named = await loadAndAttachFragments<TestResult1>(
+  const result1Named = await loadAndAttachFragments<TestResult1>(
     obj,
     config,
     noop
@@ -59,7 +59,7 @@ test('fragments', async () => {
 
   // Test case 5
   obj = { _: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
-  let result2Root = await loadAndAttachFragments<TestResult2Root>(
+  const result2Root = await loadAndAttachFragments<TestResult2Root>(
     obj,
     config,
     noop
@@ -69,7 +69,7 @@ test('fragments', async () => {
   // Test case 6
   obj = { _test: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
   // Expect { test: { test2: { foo: 'bar' } } } which matches TestResultDeep
-  let result2Named = await loadAndAttachFragments<TestResultDeep>(
+  const result2Named = await loadAndAttachFragments<TestResultDeep>(
     obj,
     config,
     noop
