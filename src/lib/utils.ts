@@ -3,7 +3,7 @@ import type { ContentTraverser } from './types.d.ts';
 /* Take an anything and traverse all objects and arrays.
  * Call callback on non-empty objects when filter returns true.
  */
-export const contentTraverser: ContentTraverser<any> = async ({
+export const contentTraverser: ContentTraverser = async ({
   obj,
   callback,
   filter
@@ -24,8 +24,11 @@ export const contentTraverser: ContentTraverser<any> = async ({
       newObj = await callback(obj);
     }
 
-    newObj = await Promise.all(
+    const entries = await Promise.all(
       Object.entries(newObj).map(async ([key, item]) => {
+        if (typeof item !== 'object' || item !== null || !Array.isArray(item)) {
+          return [key, item];
+        }
         const newItem = await contentTraverser({
           obj: item,
           filter,
@@ -35,7 +38,7 @@ export const contentTraverser: ContentTraverser<any> = async ({
       })
     );
 
-    return Object.fromEntries(newObj);
+    return Object.fromEntries(entries);
   }
   return obj;
 };

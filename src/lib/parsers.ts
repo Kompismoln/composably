@@ -39,13 +39,6 @@ import {
 
 import type { SourceComponentContent, Config } from './types.d.ts';
 
-// --- Type Definitions ---
-
-/**
- * Options for customizing the parsing process.
- */
-export interface ParseOptions {}
-
 // --- Helper Functions ---
 
 /**
@@ -89,7 +82,7 @@ function transformSlots(html: string): string {
  */
 async function parseMarkdownString(
   markdown: string,
-  initialData: Record<string, any> = {},
+  initialData: Record<string, unknown> = {},
   config: Config
 ): Promise<VFile> {
   const processor = unified()
@@ -186,70 +179,57 @@ export const parseComponentContent = async (
 
   const markdownInput = content[markdownField] as string;
 
-  try {
-    // Prepare initial data for the VFile
-    const initialVFileData = {
-      meta: { options: content.options || {} } // Pass component options if available
-    };
+  // Prepare initial data for the VFile
+  const initialVFileData = {
+    meta: { options: content.options || {} } // Pass component options if available
+  };
 
-    // 1. Parse the markdown string using the unified pipeline
-    const result = await parseMarkdownString(
-      markdownInput,
-      initialVFileData,
-      config
-    );
+  // 1. Parse the markdown string using the unified pipeline
+  const result = await parseMarkdownString(
+    markdownInput,
+    initialVFileData,
+    config
+  );
 
-    // 2. Post-processing on the resulting HTML string
-    let processedHtml = String(result.value);
-    processedHtml = transformBraces(processedHtml); // Handle {{}} and {}
-    processedHtml = transformSlots(processedHtml); // Handle <svelte-component...> placeholders
+  // 2. Post-processing on the resulting HTML string
+  let processedHtml = String(result.value);
+  processedHtml = transformBraces(processedHtml); // Handle {{}} and {}
+  processedHtml = transformSlots(processedHtml); // Handle <svelte-component...> placeholders
 
-    // 3. Update the content object
-    // Add the generated HTML
-    content[outputField] = processedHtml;
+  // 3. Update the content object
+  // Add the generated HTML
+  content[outputField] = processedHtml;
 
-    // Merge properties extracted by plugins (e.g., toc from parseHeadings)
-    // Ensure result.data exists and is an object
-    if (result.data && typeof result.data === 'object') {
-      Object.keys(result.data).forEach((key) => {
-        // Avoid overwriting essential fields like 'meta' unless intended
-        if (key !== 'meta' && key !== 'props') {
-          content[key] = result.data[key];
-        }
-      });
-
-      // Specifically merge 'props' extracted from data onto the root level
-      if (result.data.props && typeof result.data.props === 'object') {
-        Object.entries(result.data.props || {}).forEach(([key, value]) => {
-          if (value) content[key] = value;
-        });
+  // Merge properties extracted by plugins (e.g., toc from parseHeadings)
+  // Ensure result.data exists and is an object
+  if (result.data && typeof result.data === 'object') {
+    Object.keys(result.data).forEach((key) => {
+      // Avoid overwriting essential fields like 'meta' unless intended
+      if (key !== 'meta' && key !== 'props') {
+        content[key] = result.data[key];
       }
-    }
+    });
 
-    // Merge properties from the parent object, potentially overwriting
-    // properties extracted from markdown or existing ones.
-    if (content.parent && typeof content.parent === 'object') {
-      Object.keys(content.parent).forEach((key) => {
-        content[key] = (content.parent as Record<string, unknown>)[key];
+    // Specifically merge 'props' extracted from data onto the root level
+    if (result.data.props && typeof result.data.props === 'object') {
+      Object.entries(result.data.props || {}).forEach(([key, value]) => {
+        if (value) content[key] = value;
       });
-      delete content.parent; // Clean up parent field
     }
-
-    // Remove the original markdown field
-    delete content[markdownField];
-
-    // Return the modified content object
-    return content;
-  } catch (error: any) {
-    // Provide more context in case of error
-    const snippet = markdownInput.slice(0, 80); // Show more context
-    console.error(
-      `Failed to parse content in field '${markdownField}'. Input snippet: "${snippet}..."`
-    );
-    console.error(error); // Log the full error
-    // Re-throw a more informative error
-    throw new Error(
-      `Parsing failed for field '${markdownField}': ${error.message || error}`
-    );
   }
+
+  // Merge properties from the parent object, potentially overwriting
+  // properties extracted from markdown or existing ones.
+  if (content.parent && typeof content.parent === 'object') {
+    Object.keys(content.parent).forEach((key) => {
+      content[key] = (content.parent as Record<string, unknown>)[key];
+    });
+    delete content.parent; // Clean up parent field
+  }
+
+  // Remove the original markdown field
+  delete content[markdownField];
+
+  // Return the modified content object
+  return content;
 };

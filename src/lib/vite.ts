@@ -7,6 +7,7 @@ import type {
 } from './types.d.ts';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { default as Debug } from 'debug';
+import path from 'node:path';
 
 const logBase = Debug('composably');
 const logConfig = Debug('composably:config');
@@ -148,7 +149,12 @@ async function getOrLoadPage(
       }
     },
     // File Dependency Callback
-    (absolutePath) => {
+    (filePath) => {
+      if (!config.root) {
+        throw new Error('The config.root property has not been set.');
+      }
+      const fullPath = path.join(config.contentRoot, filePath);
+      const absolutePath = path.resolve(config.root, fullPath);
       let existingEntries = fileToContentEntries.get(absolutePath);
       if (!existingEntries) {
         existingEntries = new Set();

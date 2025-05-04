@@ -5,9 +5,11 @@ import { globSync } from 'node:fs';
 import path from 'node:path';
 import { parseComponentContent } from './parsers.js';
 import type {
-  SourceComponentContent,
   Config,
-  SourcePageContent
+  Fragment,
+  SourcePageContent,
+  SourceComponentContent,
+  PageContent
 } from './types.d.ts';
 import { contentTraverser } from './utils.js';
 import { colocate } from './validators.js';
@@ -38,18 +40,11 @@ export const loadContent = async (
     searchPath === '' ? config.indexFile || 'index' : searchPath;
 
   // Start by finding the root content file
-  let { filePath, content: pageData } = await findAndParseContentFile(
+  let pageData = await findAndParseContentFile(
     fileSearchPath,
-    config
+    config,
+    reportFileDependency
   );
-
-  // This check should probably be centralized, or the whole
-  // project root resolution moved to the callback.
-  if (!config.root) {
-    throw new Error('The config.root property has not been set.');
-  }
-  // Report the main file as a dependency
-  reportFileDependency(path.resolve(config.root, filePath));
 
   // Apply transformations using the contentTraverser utility.
   // The traverser modifies pageData in place or returns a new object for pageData
@@ -73,7 +68,11 @@ export const loadContent = async (
       !obj.component.startsWith('composably:'),
     callback: (obj) => {
       const validator = config.validator || colocate;
-      return validator(obj, reportFileDependency, config);
+      return validator(
+        obj as SourceComponentContent,
+        reportFileDependency,
+        config
+      );
     }
   });
 
@@ -85,7 +84,10 @@ export const loadContent = async (
       obj.component.startsWith('composably:'),
     // Callback: Process the virtual component AND call the provided handler
     callback: async (obj) => {
-      const processedComp = await processVirtualComponent(obj, config);
+      const processedComp = await processVirtualComponent(
+        obj as SourceComponentContent,
+        config
+      );
       // Call the callback with the processed component
       // Ensure processedComp has the necessary structure (e.g., component name)
       reportVirtualComponent(processedComp);
@@ -153,8 +155,6 @@ const parseFileContent = async (filePath: string): Promise<any> => {
   if (['.js', '.ts'].includes(fileExt)) {
     // Using /* @vite-ignore */ is necessary for dynamic imports where the
     // exact path isn't known statically.
-    // Ensure this works with your build tool configuration.
-    // Consider security implications if filePath could be user-influenced.
     const module = await import(/* @vite-ignore */ filePath);
     return module.default; // Assuming default export contains the content
   }
@@ -163,9 +163,6 @@ const parseFileContent = async (filePath: string): Promise<any> => {
 
   if (fileExt === '.md') {
     const { data, content: body } = matter(fileContent);
-    // Return frontmatter data and raw markdown content separately
-    // The parsing of 'markdown' happens later in processVirtualComponent
-    // if needed
     return { ...data, body };
   }
   if (['.yml', '.yaml'].includes(fileExt)) {
@@ -175,7 +172,6 @@ const parseFileContent = async (filePath: string): Promise<any> => {
     return JSON.parse(fileContent);
   }
 
-  // Should not happen if called correctly, but acts as a safeguard.
   throw new Error(
     `Unsupported file extension: '${fileExt}' for file: ${filePath}`
   );
@@ -190,26 +186,24 @@ const parseFileContent = async (filePath: string): Promise<any> => {
  */
 const findAndParseContentFile = async (
   searchPath: string,
-  config: Config
-): Promise<any> => {
+  config: Config,
+  reportFileDependency: (filePath: string) => void
+): Promise<Fragment> => {
   for (const ext of filetypes) {
     const filePath = path.join(config.contentRoot, `${searchPath}.${ext}`);
     try {
-      // Check existence first to provide clearer ENOENT handling if needed,
-      // though readFile will also throw ENOENT. Stat adds an extra check.
-      // await fs.access(filePath); // Optional: uncomment if finer-grained
-      // error handling is needed
       const content = await parseFileContent(filePath);
-      return { filePath, content };
-    } catch (error: any) {
-      // Continue loop only if file not found or module import failed
-      // specifically because of missing file
-      if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(error.code)) {
-        continue;
+      reportFileDependency(filePath);
+      return content;
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = String((error as { code: unknown }).code);
+        if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(errorCode)) {
+          continue;
+        }
+        console.error(`Error parsing file ${filePath}:`, error);
+        throw error; // Re-throw other errors (permissions, syntax errors, etc.)
       }
-      // Log or handle other errors more specifically if needed
-      console.error(`Error parsing file ${filePath}:`, error);
-      throw error; // Re-throw other errors (permissions, syntax errors, etc.)
     }
   }
   // If loop completes without finding a file
@@ -236,35 +230,22 @@ const findAndParseContentFile = async (
  * with fragments loaded and merged/attached.
  */
 const loadAndAttachFragments = async (
-  obj: Record<string, unknown>,
+  obj: Fragment,
   config: Config,
   reportFileDependency: (filePath: string) => void
-): Promise<Record<string, unknown>> => {
-  let currentResult: Record<string, unknown> = { ...obj }; // Start with a shallow copy
+): Promise<Fragment> => {
+  let currentResult: Fragment = { ...obj }; // Start with a shallow copy
 
-  const contentPath = (fragmentPath: string): string => {
-    // Ensure fragmentPath is treated relative to contentRoot
-    // Avoid joining absolute paths directly
-    const resolvedFragmentPath = path.isAbsolute(fragmentPath)
-      ? fragmentPath // Or handle error/warning?
-      : path.join(config.contentRoot, fragmentPath);
-
-    // This check should probably be centralized, or the whole
-    // project root resolution moved to the callback.
-    if (!config.root) {
-      throw new Error('The config.root property has not been set.');
-    }
-    // Ensure the final reported path is absolute from the project root
-    const absolutePath = path.resolve(config.root, resolvedFragmentPath);
-    reportFileDependency(absolutePath);
-    return absolutePath; // Return the absolute path for parsing
+  const contentPath = async (fragmentPath: string): Promise<Fragment> => {
+    const fullPath = path.join(config.contentRoot, fragmentPath);
+    reportFileDependency(fragmentPath);
+    const content = await parseFileContent(fullPath);
+    return content;
   };
 
   // 1. Handle root fragment reference ('_')
   if ('_' in currentResult && typeof currentResult._ === 'string') {
-    const fragmentPath = contentPath(currentResult._);
-    let fragmentContent = await parseFileContent(fragmentPath);
-
+    const fragmentContent = await contentPath(currentResult._);
     delete currentResult._;
 
     // Merge the fragment content. Let properties originally in currentResult
@@ -273,22 +254,20 @@ const loadAndAttachFragments = async (
   }
 
   // 2. Handle named fragment references ('_key') recursively and merge results
-  let processedFragments: Record<string, any> = {};
-  let keysToRemove: string[] = [];
+  const processedFragments: Fragment = {};
+  const keysToRemove: string[] = [];
 
   // Iterate over a copy of keys, as we might modify currentResult
   const keys = Object.keys(currentResult);
 
   for (const key of keys) {
-    if (
-      key.startsWith('_') &&
-      key.length > 1 &&
-      typeof currentResult[key] === 'string'
-    ) {
-      const fragmentPath = contentPath(currentResult[key]);
-      const newKey = key.slice(1); // Remove the leading underscore
+    if (key.startsWith('_') && key.length > 1) {
+      if (typeof currentResult[key] !== 'string') {
+        throw new Error(`Fragment '${key}' is not a string`);
+      }
 
-      let fragmentContent = await parseFileContent(fragmentPath);
+      const fragmentContent = await contentPath(currentResult[key]);
+      const newKey = key.slice(1); // Remove the leading underscore
 
       // Store processed fragment under the new key
       processedFragments[newKey] = fragmentContent;

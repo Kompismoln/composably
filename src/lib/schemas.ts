@@ -1,4 +1,4 @@
-import z from 'zod';
+import z, { ZodSchema } from 'zod';
 import type { SourceComponentContent } from './types.d.ts';
 import { shortHash } from './utils.js';
 
@@ -19,10 +19,10 @@ import { shortHash } from './utils.js';
  */
 
 const handler = {
-  get(target: any, prop: string) {
+  get(target: typeof composablyTypes, prop: string) {
     // Check target first
-    if (prop in target) {
-      return target[prop];
+    if (Object.hasOwn(target, prop)) {
+      return target[prop as keyof typeof target];
     }
     // Check if prop is a valid own property of the imported 'z' object
     if (Object.prototype.hasOwnProperty.call(z, prop)) {
@@ -35,7 +35,9 @@ const handler = {
 };
 
 const process = async (content: SourceComponentContent) => {
-  const isVirtualComponent = (prop: any): prop is SourceComponentContent => {
+  const isVirtualComponent = (
+    prop: unknown
+  ): prop is SourceComponentContent => {
     return (
       !!prop &&
       typeof prop === 'object' &&
@@ -45,7 +47,7 @@ const process = async (content: SourceComponentContent) => {
     );
   };
 
-  const { component, ...props } = content;
+  const { component: _, ...props } = content;
 
   const entries = Object.entries(content).map(([key, val]) => {
     if (isVirtualComponent(val)) {
@@ -58,8 +60,8 @@ const process = async (content: SourceComponentContent) => {
   return Object.fromEntries(entries);
 };
 
-const types = {
-  content: (obj: any) => {
+const composablyTypes = {
+  content: (obj: Record<string, ZodSchema>) => {
     return z
       .object({ ...obj, component: z.string(), meta: c.meta() })
       .strict()
@@ -80,7 +82,7 @@ const types = {
       markdown: val,
       options
     });
-    return z.string().transform(prepare).or(types.content({}));
+    return z.string().transform(prepare).or(composablyTypes.content({}));
   },
 
   component: (allowed: string[] | null = null) => {
@@ -91,7 +93,8 @@ const types = {
     return z.object({ component }).passthrough();
   },
 
-  slots: (allowed = null) => z.record(types.component(allowed)).optional(),
+  slots: (allowed = null) =>
+    z.record(composablyTypes.component(allowed)).optional(),
 
   image: () =>
     z.object({
@@ -128,4 +131,6 @@ const types = {
     })
 };
 
-export const c = new Proxy(types, handler);
+// Define a type alias for the combined type
+export type ComposablyZod = typeof composablyTypes & typeof z;
+export const c = new Proxy(composablyTypes, handler) as ComposablyZod;

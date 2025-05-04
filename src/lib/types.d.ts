@@ -1,5 +1,4 @@
 import type { SvelteComponent } from 'svelte';
-import type { ZodObject, ZodSchema } from 'zod';
 import type { Plugin } from 'unified';
 import type { Root as MdastRoot } from 'mdast';
 import type { Root as HastRoot } from 'hast';
@@ -17,8 +16,8 @@ export interface Config {
   indexFile?: string; // Basename (without extension) of the file representing the root '/' path
 
   // Parsing/Plugin Options (conflated for now)
-  remarkPlugins?: Plugin<any, MdastRoot>[];
-  rehypePlugins?: Plugin<any, HastRoot>[];
+  remarkPlugins?: Plugin<unknown, MdastRoot>[];
+  rehypePlugins?: Plugin<unknown, HastRoot>[];
   validator?: ComponentValidator;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
@@ -28,10 +27,6 @@ export interface Config {
  * Represents the raw, parsed data from a fragment file.
  * Can contain any structure defined within the fragment.
  */
-export interface Fragment {
-  [key: string]: unknown;
-}
-
 /**
  * Represents a piece of content that should be rendered by a Svelte component.
  * Requires the component path (relative to componentRoot, without .svelte)
@@ -74,15 +69,15 @@ export type PageContent = Omit<
   components?: ComponentContent[]; // Override with list of runtime ComponentContent
 };
 // --- Utility Types ---
-
+export type Fragment = Record<string, unknown>;
 /**
  * Generic type for a function that traverses an object/array structure asynchronously.
  */
-export type ContentTraverser<T> = (handle: {
-  obj: T;
-  filter: (val: any) => boolean; // Filter can operate on any value during traversal
-  callback: (val: any) => Promise<any>; // Callback processes filtered values
-}) => Promise<T>;
+export type ContentTraverser = (handle: {
+  obj: Fragment | Fragment[];
+  filter: (val: Fragment) => boolean; // Filter can operate on any value during traversal
+  callback: (val: Fragment) => Promise<Fragment>; // Callback processes filtered values
+}) => Promise<Fragment | Fragment[]>;
 
 // --- VFile Augmentation ---
 // This tells TypeScript about the custom properties you add to file.data
