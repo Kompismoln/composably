@@ -3,6 +3,11 @@ import type { Root, Heading } from 'mdast';
 import type { VFile } from 'vfile';
 import { toString } from 'mdast-util-to-string';
 
+interface HeadingData {
+  depth: number;
+  text: string;
+  id?: string;
+}
 /* Do heading stuff
  * - Add id
  * - Decrease depth
@@ -10,7 +15,7 @@ import { toString } from 'mdast-util-to-string';
  */
 export default function parseHeadings() {
   return (tree: Root, file: VFile) => {
-    const headings: any[] = [];
+    const headings: HeadingData[] = [];
 
     visit(tree, 'heading', (node) => {
       const id = headerId(node);
