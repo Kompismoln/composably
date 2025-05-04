@@ -2,7 +2,7 @@
  * Unified/Remark/Rehype parser module for component content.
  *
  * Features:
- * - Parses markdown fields within a ComponentContent object.
+ * - Parses markdown fields within a SourceComponentContent object.
  * - Allows injection of custom remark and rehype plugins.
  * - Decrease headings and create TOC (via default plugin).
  * - Set placeholders for slots (via default plugin).
@@ -26,7 +26,7 @@ import {
   extendedTableHandlers
 } from 'remark-extended-table';
 import rehypeStringify from 'rehype-stringify';
-import { unified, type Plugin } from 'unified';
+import { unified } from 'unified';
 import type { VFile } from 'vfile';
 
 // Default plugins (can be customized further)
@@ -37,7 +37,7 @@ import {
   defListHastHandlers
 } from './unified-plugins/definitionList.js';
 
-import type { ComponentContent, Config } from './types.d.ts'; // Assuming this defines ComponentContent structure
+import type { SourceComponentContent, Config } from './types.d.ts';
 
 // --- Type Definitions ---
 
@@ -151,23 +151,23 @@ async function parseMarkdownString(
 // --- Main Exported Function ---
 
 /**
- * Parses designated fields within a ComponentContent object.
+ * Parses designated fields within a SourceComponentContent object.
  * Currently focuses on parsing a 'markdown' field into an 'html' field,
  * applying various transformations and plugin processing.
  *
- * @param content The input ComponentContent object. Expected to have a field
+ * @param content The input SourceComponentContent object. Expected to have a field
  * (default 'markdown') containing the markdown string, and potentially
  * an 'config' field for metadata and a 'parent' field for property inheritance.
  * @param config Optional configuration for the parser, including injectable plugins
  * and field names.
- * @returns A Promise resolving to the modified ComponentContent object with parsed HTML,
+ * @returns A Promise resolving to the modified SourceComponentContent object with parsed HTML,
  * extracted data, and merged properties.
  * @throws Throws an error if parsing fails.
  */
 export const parseComponentContent = async (
-  content: ComponentContent,
+  content: SourceComponentContent,
   config: Config
-): Promise<ComponentContent> => {
+): Promise<SourceComponentContent> => {
   const {
     markdownField = 'markdown', // Default field to parse
     outputField = 'html' // Default field for output HTML
@@ -220,8 +220,8 @@ export const parseComponentContent = async (
 
       // Specifically merge 'props' extracted from data onto the root level
       if (result.data.props && typeof result.data.props === 'object') {
-        Object.keys(result.data.props).forEach((key) => {
-          content[key] = result.data.props[key];
+        Object.entries(result.data.props || {}).forEach(([key, value]) => {
+          if (value) content[key] = value;
         });
       }
     }

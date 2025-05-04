@@ -16,92 +16,96 @@ import { shortHash } from './utils.js';
  *
  */
 const handler = {
-    get(target, prop) {
-        // Check target first
-        if (prop in target) {
-            return target[prop];
-        }
-        // Check if prop is a valid own property of the imported 'z' object
-        if (Object.prototype.hasOwnProperty.call(z, prop)) {
-            // Assert that prop is a key of z before indexing
-            return z[prop];
-        }
-        // Return undefined or throw an error if prop is not found anywhere
-        return undefined;
+  get(target, prop) {
+    // Check target first
+    if (prop in target) {
+      return target[prop];
     }
+    // Check if prop is a valid own property of the imported 'z' object
+    if (Object.prototype.hasOwnProperty.call(z, prop)) {
+      // Assert that prop is a key of z before indexing
+      return z[prop];
+    }
+    // Return undefined or throw an error if prop is not found anywhere
+    return undefined;
+  }
 };
 const process = async (content) => {
-    const isVirtualComponent = (prop) => {
-        return (!!prop &&
-            typeof prop === 'object' &&
-            'component' in prop &&
-            typeof prop.component === 'string' &&
-            prop.component.startsWith('composably:'));
-    };
-    const { component, ...props } = content;
-    const entries = Object.entries(content).map(([key, val]) => {
-        if (isVirtualComponent(val)) {
-            delete props[key];
-            val.parent = props;
-        }
-        return [key, val];
-    });
-    return Object.fromEntries(entries);
+  const isVirtualComponent = (prop) => {
+    return (
+      !!prop &&
+      typeof prop === 'object' &&
+      'component' in prop &&
+      typeof prop.component === 'string' &&
+      prop.component.startsWith('composably:')
+    );
+  };
+  const { component, ...props } = content;
+  const entries = Object.entries(content).map(([key, val]) => {
+    if (isVirtualComponent(val)) {
+      delete props[key];
+      val.parent = props;
+    }
+    return [key, val];
+  });
+  return Object.fromEntries(entries);
 };
 const types = {
-    content: (obj) => {
-        return z
-            .object({ ...obj, component: z.string(), meta: c.meta() })
-            .strict()
-            .transform((val) => process(val));
-    },
-    meta: () => {
-        return z
-            .object({
-            svelte: z.boolean().optional()
-        })
-            .optional();
-    },
-    markdown: (options = {}) => {
-        const prepare = (val) => ({
-            component: `composably:component/${shortHash(val)}`,
-            markdown: val,
-            options
-        });
-        return z.string().transform(prepare).or(types.content({}));
-    },
-    component: (allowed = null) => {
-        const component = allowed
-            ? z.enum(allowed)
-            : z.string();
-        return z.object({ component }).passthrough();
-    },
-    slots: (allowed = null) => z.record(types.component(allowed)).optional(),
-    image: () => z.object({
-        src: z.string(),
-        alt: z.string()
+  content: (obj) => {
+    return z
+      .object({ ...obj, component: z.string(), meta: c.meta() })
+      .strict()
+      .transform((val) => process(val));
+  },
+  meta: () => {
+    return z
+      .object({
+        svelte: z.boolean().optional()
+      })
+      .optional();
+  },
+  markdown: (options = {}) => {
+    const prepare = (val) => ({
+      component: `composably:component/${shortHash(val)}`,
+      markdown: val,
+      options
+    });
+    return z.string().transform(prepare).or(types.content({}));
+  },
+  component: (allowed = null) => {
+    const component = allowed ? z.enum(allowed) : z.string();
+    return z.object({ component }).passthrough();
+  },
+  slots: (allowed = null) => z.record(types.component(allowed)).optional(),
+  image: () =>
+    z.object({
+      src: z.string(),
+      alt: z.string()
     }),
-    link: () => z.object({
-        url: z.string(),
-        text: z.string(),
-        blank: z.boolean().optional()
+  link: () =>
+    z.object({
+      url: z.string(),
+      text: z.string(),
+      blank: z.boolean().optional()
     }),
-    button: () => z.object({
-        url: z.string(),
-        text: z.string(),
-        fill: z.boolean().optional()
+  button: () =>
+    z.object({
+      url: z.string(),
+      text: z.string(),
+      fill: z.boolean().optional()
     }),
-    social: () => z.object({
-        url: z.string(),
-        platform: z.enum([
-            'twitter',
-            'facebook',
-            'mastodon',
-            'instagram',
-            'youtube',
-            'bluesky',
-            'tiktok'
-        ])
+  social: () =>
+    z.object({
+      url: z.string(),
+      platform: z.enum([
+        'twitter',
+        'facebook',
+        'mastodon',
+        'instagram',
+        'youtube',
+        'bluesky',
+        'tiktok'
+      ])
     })
 };
 export const c = new Proxy(types, handler);

@@ -4,7 +4,11 @@ import fs from 'node:fs/promises';
 import { globSync } from 'node:fs';
 import path from 'node:path';
 import { parseComponentContent } from './parsers.js';
-import type { ComponentContent, Config, PageContent } from './types.d.ts';
+import type {
+  SourceComponentContent,
+  Config,
+  SourcePageContent
+} from './types.d.ts';
 import { contentTraverser } from './utils.js';
 import { colocate } from './validators.js';
 
@@ -20,17 +24,18 @@ const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
  * @param config The application configuration object.
  * @param reportVirtualComponent A callback function invoked whenever a virtual
  * component is successfully processed. It receives the processed component content.
- * @returns A Promise resolving to the fully processed page data (type PageContent).
+ * @returns A Promise resolving to the fully processed page data (type SourcePageContent).
  */
 export const loadContent = async (
   searchPath: string,
   config: Config,
-  reportVirtualComponent: (component: ComponentContent) => void,
+  reportVirtualComponent: (component: SourceComponentContent) => void,
   reportFileDependency: (filePath: string) => void
-): Promise<PageContent> => {
+): Promise<SourcePageContent> => {
   // Return type is the Promise for the main content
 
-  const fileSearchPath = searchPath === '' ? config.indexFile : searchPath;
+  const fileSearchPath =
+    searchPath === '' ? config.indexFile || 'index' : searchPath;
 
   // Start by finding the root content file
   let { filePath, content: pageData } = await findAndParseContentFile(
@@ -38,10 +43,12 @@ export const loadContent = async (
     config
   );
 
-  // Report the main file as a dependency
+  // This check should probably be centralized, or the whole
+  // project root resolution moved to the callback.
   if (!config.root) {
     throw new Error('The config.root property has not been set.');
   }
+  // Report the main file as a dependency
   reportFileDependency(path.resolve(config.root, filePath));
 
   // Apply transformations using the contentTraverser utility.
@@ -65,7 +72,7 @@ export const loadContent = async (
       typeof obj?.component === 'string' &&
       !obj.component.startsWith('composably:'),
     callback: (obj) => {
-      const validator = (config.validator ||  colocate);
+      const validator = config.validator || colocate;
       return validator(obj, reportFileDependency, config);
     }
   });
@@ -89,7 +96,7 @@ export const loadContent = async (
   });
 
   // After all traversals, the final pageData is ready.
-  return pageData as PageContent; // Assert or validate final type
+  return pageData as SourcePageContent; // Assert or validate final type
 };
 
 /**
@@ -120,7 +127,7 @@ export const discoverContentPaths = (config: Config): string[] => {
           const sitePath = path.join(dir, name);
 
           // Handle index file mapping (e.g., 'index' -> '')
-          return sitePath === config.indexFile
+          return sitePath === (config.indexFile || 'index')
             ? ''
             : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
         })
@@ -211,8 +218,6 @@ const findAndParseContentFile = async (
   );
 };
 
-// --- Fragment Handling ---
-
 /**
  * Recursively load and merge fragment files referenced in an object.
  * Fragments are referenced by keys starting with '_'.
@@ -221,83 +226,138 @@ const findAndParseContentFile = async (
  * underscore.
  * Note: Uses spread syntax to create new objects, aiming for immutability.
  *
- * @param obj The object potentially containing fragment references.
+ * @template TExpected The expected shape of the returned object after processing fragments.
+ * The caller is responsible for providing an accurate type based
+ * on the input object and the contents of the referenced fragments.
+ * @param obj The object potentially containing fragment references. Should be JSON-serializable.
  * @param config The application configuration object.
- * @returns A new object with fragments loaded and merged.
+ * @param reportFileDependency Callback function to report file dependencies.
+ * @returns A Promise resolving to a new object of the shape TExpected,
+ * with fragments loaded and merged/attached.
  */
-const loadAndAttachFragments = async (
-  obj: any,
+const loadAndAttachFragments = async <TExpected = Record<string, unknown>>( // Default to a generic object if not specified
+  obj:
+    | Record<string, any>
+    | null
+    | undefined
+    | string
+    | number
+    | boolean
+    | Array<any>, // Accept any JSON-like input
   config: Config,
   reportFileDependency: (filePath: string) => void // Callback function signature
-): Promise<any> => {
+): Promise<TExpected> => {
+  // Promise to return the type the caller expects
   // Base case: If it's not an object worth traversing, return as is.
+  // Need to cast non-object types to TExpected at the return points.
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-    return obj;
+    // If the input wasn't an object, we assume it doesn't change.
+    // However, the function *promises* TExpected. This cast acknowledges
+    // that if the caller expects an object but provides a primitive,
+    // the type might not match reality. The caller should ideally provide
+    // primitives only when TExpected is also a primitive type.
+    return obj as TExpected;
   }
 
-  let currentResult = { ...obj }; // Start with a shallow copy
+  // Now we know obj is a Record<string, any> essentially
+  let currentResult: Record<string, any> = { ...obj }; // Start with a shallow copy
 
   const contentPath = (fragmentPath: string): string => {
-    const filePath = path.join(config.contentRoot, fragmentPath);
-    reportFileDependency(path.resolve(config.root, filePath));
-    return filePath;
+    // Ensure fragmentPath is treated relative to contentRoot
+    // Avoid joining absolute paths directly
+    const resolvedFragmentPath = path.isAbsolute(fragmentPath)
+      ? fragmentPath // Or handle error/warning?
+      : path.join(config.contentRoot, fragmentPath);
+
+    // This check should probably be centralized, or the whole
+    // project root resolution moved to the callback.
+    if (!config.root) {
+      throw new Error('The config.root property has not been set.');
+    }
+    // Ensure the final reported path is absolute from the project root
+    const absolutePath = path.resolve(config.root, resolvedFragmentPath);
+    reportFileDependency(absolutePath);
+    return absolutePath; // Return the absolute path for parsing
   };
 
   // 1. Handle root fragment reference ('_')
   if ('_' in currentResult && typeof currentResult._ === 'string') {
     const fragmentPath = contentPath(currentResult._);
     let fragmentContent = await parseFileContent(fragmentPath);
-    // Recursively process fragments within the loaded fragment
-    fragmentContent = await loadAndAttachFragments(
+
+    // Recursively process fragments within the loaded fragment.
+    // We expect the fragment content to conform to TExpected potentially,
+    // but its internal structure might be different. We pass Record<string, any>
+    // for flexibility and cast the final result later.
+    fragmentContent = await loadAndAttachFragments<Record<string, unknown>>( // Use a generic type internally
       fragmentContent,
       config,
       reportFileDependency
     );
-    // Merge the fragment content, letting currentResult properties override
-    // fragment properties if keys clash
+
+    // Cache the original '_' value before deleting
+    const originalUnderscoreValue = currentResult._;
+    delete currentResult._; // Remove the reference key *before* merging
+
+    // Merge the fragment content. Let properties originally in currentResult
+    // (other than '_') override fragment properties if keys clash.
     currentResult = { ...fragmentContent, ...currentResult };
-    delete currentResult._; // Remove the reference key
   }
 
-  // 2. Handle named fragment references ('_key')
-  const fragmentKeys = Object.keys(currentResult).filter(
-    (key) =>
+  // 2. Handle named fragment references ('_key') recursively and merge results
+  let processedFragments: Record<string, any> = {};
+  let keysToRemove: string[] = [];
+
+  // Iterate over a copy of keys, as we might modify currentResult
+  const keys = Object.keys(currentResult);
+
+  for (const key of keys) {
+    if (
       key.startsWith('_') &&
       key.length > 1 &&
       typeof currentResult[key] === 'string'
-  );
+    ) {
+      const fragmentPath = contentPath(currentResult[key]);
+      const newKey = key.slice(1); // Remove the leading underscore
 
-  if (fragmentKeys.length === 0) {
-    return currentResult; // No named fragments to process
+      let fragmentContent = await parseFileContent(fragmentPath);
+
+      // Recursively process fragments within the loaded fragment
+      fragmentContent = await loadAndAttachFragments<Record<string, unknown>>( // Use generic type internally
+        fragmentContent,
+        config,
+        reportFileDependency
+      );
+
+      // Store processed fragment under the new key
+      processedFragments[newKey] = fragmentContent;
+      keysToRemove.push(key); // Mark original '_key' for removal
+    } else if (typeof currentResult[key] === 'object') {
+      // Recursively process nested objects that aren't fragments themselves
+      // Important: Pass the expected type recursively if possible,
+      // otherwise default to Record<string, unknown> or any.
+      // This part is tricky without knowing TExpected's structure.
+      // For simplicity, we'll process recursively but rely on the final cast.
+      currentResult[key] = await loadAndAttachFragments<
+        Record<string, unknown>
+      >(currentResult[key], config, reportFileDependency);
+    }
   }
 
-  // Create a temporary object to hold the processed named fragments
-  const processedFragments: Record<string, any> = {};
-
-  for (const key of fragmentKeys) {
-    const fragmentPath = contentPath(currentResult[key]);
-    const newKey = key.slice(1); // Remove the leading underscore
-
-    let fragmentContent = await parseFileContent(fragmentPath);
-    // Recursively process fragments within the loaded fragment
-    fragmentContent = await loadAndAttachFragments(
-      fragmentContent,
-      config,
-      reportFileDependency
-    );
-
-    // Store processed fragment under the new key
-    processedFragments[newKey] = fragmentContent;
-    // Remove the reference key from the current result
-    delete currentResult[key];
+  // Remove the original '_key' references
+  for (const keyToRemove of keysToRemove) {
+    delete currentResult[keyToRemove];
   }
 
-  // Merge the processed fragments with the current result.
-  // Ensure properties in currentResult take precedence over newly attached
-  // fragments if keys clash.
+  // Merge the processed named fragments with the current result.
+  // Ensure properties already in currentResult (that weren't '_keys')
+  // take precedence over newly attached fragments if keys clash.
   currentResult = { ...processedFragments, ...currentResult };
 
-  return currentResult;
+  // *** Crucial Step ***
+  // The function promises TExpected, but internally builds an object.
+  // We trust the caller and the process and cast the final result.
+  return currentResult as TExpected;
 };
 
 // --- Component Processing ---
@@ -312,9 +372,9 @@ const loadAndAttachFragments = async (
  * markdown.
  */
 const processVirtualComponent = async (
-  content: ComponentContent,
+  content: SourceComponentContent,
   config: Config
-): Promise<ComponentContent> => {
+): Promise<SourceComponentContent> => {
   // Check if there's markdown content to parse
   if ('markdown' in content && typeof content.markdown === 'string') {
     try {

@@ -1,6 +1,10 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import { discoverContentPaths, loadContent } from './content.js';
-import type { PageContent, ComponentContent, Config } from './types.d.ts';
+import type {
+  SourceComponentContent,
+  Config,
+  SourcePageContent
+} from './types.d.ts';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { default as Debug } from 'debug';
 
@@ -9,9 +13,8 @@ const logConfig = Debug('composably:config');
 const logCache = Debug('composably:cache');
 const logLoad = Debug('composably:load');
 const logHMR = Debug('composably:hmr');
-const logDeps = Debug('composably:deps');
 
-// --- Define constants for virtual module IDs ---
+// --- Constants for virtual module IDs ---
 
 // User-facing prefix (used in import statements)
 const PLUGIN_PREFIX = 'composably:';
@@ -21,7 +24,7 @@ const PLUGIN_PREFIX = 'composably:';
 const VIRTUAL_CONTENT = `${PLUGIN_PREFIX}content`;
 // e.g., import page from 'composably:content/about';
 const VIRTUAL_PAGE = `${PLUGIN_PREFIX}content/`;
-// e.g., import Comp from 'composably:component:MyVirtualComp';
+// e.g., import Comp from 'composably:component/[short-hash].svelte';
 const VIRTUAL_COMPONENT = `${PLUGIN_PREFIX}component/`;
 
 // Resolved IDs (internal, prefixed with null byte)
@@ -32,13 +35,14 @@ const RESOLVED_PAGE = `\0${VIRTUAL_PAGE}`;
 const COMPONENT_SUFFIX = '.svelte';
 
 // Empty source map for virtual components
-// Not critical but silence SvelteKit warnings about missing files.
+// Not critical but it silences SvelteKit warnings about missing source files.
 const VIRTUAL_SOURCEMAP = {
   version: 3,
   sources: [],
   names: [],
   mappings: ''
 };
+
 // ---------------------------------------------
 
 export default async function composably(config: Config): Promise<Plugin[]> {
@@ -47,22 +51,20 @@ export default async function composably(config: Config): Promise<Plugin[]> {
   return [composablyPlugin, ...sveltePlugins];
 }
 
-// --- New Data Structures ---
-
 // Cache for resolved page content promises
 // Key: entryPath (e.g., 'about')
 // Value: { promise: Promise<PageContent>, sourceFiles: Set<string> }
 const pageCache = new Map<
   string,
-  { promise: Promise<PageContent>; sourceFiles: Set<string> }
+  { promise: Promise<SourcePageContent>; sourceFiles: Set<string> }
 >();
 
 // Cache for virtual component data
 // Key: virtual component ID (e.g., 'composably:component/MyVirtualComp')
-// Value: { data: ComponentContent, sourceEntryPath: string }
+// Value: { data: SourceComponentContent, sourceEntryPath: string }
 const virtualComponentCache = new Map<
   string,
-  { data: ComponentContent; sourceEntryPath: string }
+  { data: SourceComponentContent; sourceEntryPath: string }
 >();
 
 // Dependency tracking: Source file -> Content Entries
@@ -76,7 +78,7 @@ const fileToContentEntries = new Map<string, Set<string>>();
 const entryToVirtualComponents = new Map<string, Set<string>>();
 
 // Cache for the list of entries itself
-let entries: Set<string> | null = null; // Use Set for easier diffing later
+let entries: Set<string> | null = null;
 
 // --- Helper Functions ---
 
@@ -116,7 +118,7 @@ function invalidateCacheForFile(filePath: string) {
 async function getOrLoadPage(
   entryPath: string,
   config: Config
-): Promise<PageContent> {
+): Promise<SourcePageContent> {
   if (pageCache.has(entryPath)) {
     return pageCache.get(entryPath)!.promise;
   }
@@ -130,14 +132,16 @@ async function getOrLoadPage(
     // Virtual Component Callback
     (processedVirtualComponent) => {
       if (processedVirtualComponent?.component) {
-        const vcId = processedVirtualComponent.component; // Already prefixed e.g., composably:component/MyVirtualComp
+        // Already prefixed e.g., composably:component/MyVirtualComp
+        const vcId = processedVirtualComponent.component;
         logCache(`Caching virtual component: ${vcId} from entry: ${entryPath}`);
         virtualComponentCache.set(vcId, {
           data: processedVirtualComponent,
           sourceEntryPath: entryPath
         });
         generatedVirtualComponents.add(vcId);
-        // We don't know the *exact* source lines, but we know it came *from processing* this entryPath.
+        // We don't know the *exact* source lines, but we know it came
+        // *from processing* this entryPath.
         // Dependencies on source files are handled via reportFileDependency.
       } else {
         console.warn(/* ... warning ... */);
@@ -196,7 +200,6 @@ async function getOrLoadPage(
   return pageContent;
 }
 
-// Function to get entry list (can remain similar, maybe return Set)
 function getEntries(config: Config, refresh = false): Set<string> {
   if (refresh || !entries) {
     // Make sure discoverContentPaths returns unique paths
@@ -206,8 +209,6 @@ function getEntries(config: Config, refresh = false): Set<string> {
 }
 
 async function plugin(config: Config): Promise<Plugin> {
-  // Use the new caches and helpers defined above
-
   return {
     name: 'svelte-composably',
     enforce: 'pre',
@@ -236,8 +237,8 @@ async function plugin(config: Config): Promise<Plugin> {
         return undefined; // Don't resolve if entry doesn't exist
       }
       if (source.startsWith(VIRTUAL_COMPONENT)) {
-        // No null byte needed if it's treated like a normal svelte file path for Vite/Svelte plugin?
-        // Or add one for consistency: return `\0${source}`;
+        // No null byte needed as it should be treated like a normal svelte
+        // file path for Vite/Svelte plugin.
         // Check if it exists in the cache (optional, load will handle it)
         // if (virtualComponentCache.has(source)) { ... }
         return source; // Assuming Vite/Svelte handles .svelte resolution
@@ -245,16 +246,19 @@ async function plugin(config: Config): Promise<Plugin> {
       return undefined; // Explicitly return undefined for other cases
     },
 
-    async load(id, opts) {
+    async load(id) {
       // --- Load VIRTUAL_CONTENT list ---
       if (id === RESOLVED_CONTENT) {
         logLoad('Loading:', RESOLVED_CONTENT);
         const currentEntries = Array.from(getEntries(config)); // Get latest entries
 
         // Generate case statements for each entry
-        const cases = currentEntries.map(p =>
-          `case '${p}': return (await import('${VIRTUAL_PAGE}${p}')).default();`
-        ).join('\n');
+        const cases = currentEntries
+          .map(
+            (p) =>
+              `case '${p}': return (await import('${VIRTUAL_PAGE}${p}')).default();`
+          )
+          .join('\n');
 
         // Generate the code for the virtual module, exporting a single async function
         const code = `
@@ -319,11 +323,12 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
       }
 
       const { data } = cachedVC;
-      const { component, ...props } = data; // Destructure the ComponentContent
+      const { component, ...props } = data; // Destructure the SourceComponentContent
+
       // Including html enable {@html props.html}, which could be useful,
       // If not it should be deleted upstream
       const propKeys = Object.keys(props).filter((k) => k !== 'html');
-      // Exclude html from props declaration
+
       const propString = `{ ${propKeys.join(', ')} } = $props();`;
       const scriptString =
         propKeys.length > 0 ? `<script>\nlet ${propString};\n</script>\n` : '';
@@ -390,7 +395,9 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
         // Add logic here to check if the change affects the *list* of entries itself
         // e.g., by comparing getEntries(config, true) with the cached 'entries' Set.
         // If the list changes, invalidate RESOLVED_CONTENT.
-        const oldEntries = entries ? new Set(entries) : new Set();
+        const oldEntries: Set<string> = entries
+          ? new Set(entries)
+          : new Set<string>();
         const newEntries = getEntries(config, true); // Force refresh discovery
 
         if (setsDiffer(oldEntries, newEntries)) {
@@ -425,7 +432,7 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
     },
 
     // Optional: configureServer hook to perform initial scan
-    configureServer(server) {
+    configureServer() {
       logBase(
         'Composably Plugin: configureServer - Performing initial content scan...'
       );

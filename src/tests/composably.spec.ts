@@ -1,62 +1,78 @@
-import { describe, it, expect, vi } from 'vitest';
-import path from 'node:path';
-import { globSync } from 'node:fs';
+import { expect, test } from 'vitest';
 import { __test__ } from '../lib/content.js';
 import config from '../../composably.config.js';
 
-const attachFragment = __test__.loadAndAttachFragments;
+const loadAndAttachFragments = __test__.loadAndAttachFragments;
 config.root = process.cwd();
 
-// Define expected structure for test results if possible
 interface TestResult1 {
-  // Expected props after fragment merging
   foo?: string;
   test?: { foo: string };
-  test2?: { foo: string };
-  // Add other expected props
+  // Add other expected props if necessary
 }
 interface TestResultDeep {
   test: { test2: { foo: string } };
 }
+// Interface for the case like { test2: { foo: 'bar' } } from _test-2.yaml merged at root
+interface TestResult2Root {
+  test2: { foo: string };
+}
 
-const noop = () => {};
+const noop = (_: string) => {};
 
-describe('fragments', () => {
-  it('attaches fragments', async () => {
-    let obj = {};
-    obj = { _: 'test/_test-0.yaml' };
-    obj = (await attachFragment(obj, config, noop)) as TestResult1;
-    expect(obj).deep.equal({});
+test('fragments', async () => {
+  let obj: any = {}; // Start with any or unknown
 
-    obj = { _test: 'test/_test-0.yaml' };
-    obj = (await attachFragment(obj, config, noop)) as TestResult1;
-    expect(obj.test).toBeUndefined();
+  // Test case 1
+  obj = { _: 'test/_test-0.yaml' }; // Assuming _test-0.yaml is empty or results in {}
+  let result0 = await loadAndAttachFragments<{}>(obj, config, noop); // Explicitly expect empty
+  expect(result0).deep.equal({});
 
-    obj = { _: 'test/_test-1.yaml' };
-    obj = (await attachFragment(obj, config, noop)) as TestResult1;
-    expect(obj.foo).eq('bar');
+  // Test case 2
+  obj = { _test: 'test/_test-0.yaml' }; // Assuming _test-0.yaml results in {}
+  let result0Named = await loadAndAttachFragments<{ test?: {} }>(
+    obj,
+    config,
+    noop
+  ); // Expect { test: {} }
+  expect(result0Named).deep.equal({ test: undefined }); // Check if 'test' property exists
+  // If _test-0.yaml IS truly empty {}, then .test will be {} which is not undefined.
+  // If you want to check if test has no meaningful props, check keys or specific content.
+  // Or if test-0.yaml makes test *not* be added, adjust expectation.
+  // Let's assume test-0 results in {}:
+  expect(Object.keys(result0Named.test ?? {}).length).toBe(0);
 
-    obj = { _test: 'test/_test-1.yaml' };
-    obj = (await attachFragment(obj, config, noop)) as TestResult1;
-    expect(obj.test.foo).eq('bar');
+  // Test case 3
+  obj = { _: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
+  let result1 = await loadAndAttachFragments<TestResult1>(obj, config, noop);
+  expect(result1.foo).eq('bar');
 
-    obj = { _: 'test/_test-2.yaml' };
-    obj = (await attachFragment(obj, config, noop)) as TestResultDeep;
-    expect(obj.test2.foo).eq('bar');
+  // Test case 4
+  obj = { _test: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
+  // Expect { test: { foo: 'bar' } } which fits TestResult1's optional 'test' prop shape
+  let result1Named = await loadAndAttachFragments<TestResult1>(
+    obj,
+    config,
+    noop
+  );
+  expect(result1Named.test?.foo).eq('bar'); // Use optional chaining for safety if test might be undefined
 
-    obj = { _test: 'test/_test-2.yaml' };
-    obj = await attachFragment(obj, config, noop);
-    expect(obj.test.test2.foo).eq('bar');
-  });
-});
+  // Test case 5
+  obj = { _: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
+  let result2Root = await loadAndAttachFragments<TestResult2Root>(
+    obj,
+    config,
+    noop
+  );
+  expect(result2Root.test2.foo).eq('bar');
 
-describe('playground', () => {
-  it('finds page.yaml in content', () => {
-    const contentDir = path.resolve(process.cwd(), 'src/lib/content');
-    const pattern = path.join(contentDir, '**', 'page.@(yaml|md)');
-    const files = globSync(pattern);
-    const content = Object.fromEntries(
-      files.map((file) => [path.dirname(path.relative(contentDir, file)), file])
-    );
-  });
+  // Test case 6
+  obj = { _test: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
+  // Expect { test: { test2: { foo: 'bar' } } } which matches TestResultDeep
+  let result2Named = await loadAndAttachFragments<TestResultDeep>(
+    obj,
+    config,
+    noop
+  );
+  expect(result2Named.test.test2.foo).eq('bar');
 });

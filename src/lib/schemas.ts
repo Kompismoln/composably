@@ -1,5 +1,5 @@
 import z from 'zod';
-import type { ComponentContent } from './types.d.ts';
+import type { SourceComponentContent } from './types.d.ts';
 import { shortHash } from './utils.js';
 
 /**
@@ -34,8 +34,8 @@ const handler = {
   }
 };
 
-const process = async (content: ComponentContent) => {
-  const isVirtualComponent = (prop: any): prop is ComponentContent => {
+const process = async (content: SourceComponentContent) => {
+  const isVirtualComponent = (prop: any): prop is SourceComponentContent => {
     return (
       !!prop &&
       typeof prop === 'object' &&
@@ -63,7 +63,7 @@ const types = {
     return z
       .object({ ...obj, component: z.string(), meta: c.meta() })
       .strict()
-      .transform((val) => process(val as ComponentContent));
+      .transform((val) => process(val as SourceComponentContent));
   },
 
   meta: () => {
@@ -75,7 +75,7 @@ const types = {
   },
 
   markdown: (options = {}) => {
-    const prepare = (val: string): ComponentContent => ({
+    const prepare = (val: string): SourceComponentContent => ({
       component: `composably:component/${shortHash(val)}`,
       markdown: val,
       options

@@ -17,9 +17,9 @@
   <body.component {...body} />
 </div>
 {#if fragment}
-<div data-testid="fragment-component">
-  <fragment.component {...fragment} />
-</div>
+  <div data-testid="fragment-component">
+    <fragment.component {...fragment} />
+  </div>
 {/if}
 <div data-testid="headings">
   {#each body.headings as heading}

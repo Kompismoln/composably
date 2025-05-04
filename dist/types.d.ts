@@ -1,11 +1,13 @@
-import type { ComponentType } from 'svelte';
-import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more flexibility
+import type { ZodSchema } from 'zod';
 import type { Plugin } from 'unified';
+import type { Root as MdastRoot } from 'mdast';
+import type { Root as HastRoot } from 'hast';
 
 type Validator = (
   content: ComponentContent,
-  reportFileDependency: (filePath: string) => void
-) => Promise<Content>;
+  reportFileDependency: (filePath: string) => void,
+  config: Config
+) => Promise<ComponentContent>;
 
 export interface Config {
   root?: string;
@@ -14,8 +16,8 @@ export interface Config {
   indexFile: string; // Basename (without extension) of the file representing the root '/' path
 
   // Parsing/Plugin Options (conflated for now)
-  remarkPlugins?: Plugin<any, Root>[];
-  rehypePlugins?: Plugin<any, Root>[];
+  remarkPlugins?: Plugin<any, MdastRoot>[];
+  rehypePlugins?: Plugin<any, HastRoot>[];
   validator: Validator;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
@@ -74,33 +76,6 @@ export type ContentTraverserSync<T> = (handle: {
 }) => T;
 
 // --- Svelte/Vite/Schema Related Types ---
-
-/**
- * Expected structure of the module exported by a Svelte component file,
- * including the component itself and an optional validation schema.
- */
-type ComponentModule = {
-  default: ComponentType;
-  // Allow any Zod schema, not just ZodObject, for flexibility
-  schema?: ZodSchema<any>; // Use base ZodSchema
-};
-
-/**
- * Type representing the result of Vite's `import.meta.glob`, mapping
- * import paths to async functions that load ComponentModules.
- */
-type ComponentMap = Record<string, () => Promise<ComponentModule>>;
-
-/**
- * Represents a Svelte component ready for rendering, coupling the
- * ComponentType with its resolved (and potentially validated) props.
- */
-export interface ResolvedComponent<
-  T extends ComponentContent = ComponentContent
-> {
-  component: ComponentType; // The actual Svelte component constructor
-  props: ComponentProps<T>; // The props for the component instance
-}
 
 // --- Module Augmentations ---
 

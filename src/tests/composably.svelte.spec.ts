@@ -1,17 +1,22 @@
 import { render } from '@testing-library/svelte';
 import content from 'composably:content';
+import about from 'composably:content/about';
 import { expect, test } from 'vitest';
+
+test('direct page import', async () => {
+  const { component, ...props } = await about();
+  const { getByTestId } = render(component, { props });
+  expect(getByTestId('h1').innerHTML).toBe('About');
+});
 
 test('site about', async () => {
   const { component, ...props } = await content('about');
   const { getByTestId } = render(component, { props });
   expect(getByTestId('h1').innerHTML).toBe('About');
-
 });
 test('site 404', async () => {
   const noPagePromise = content('no-page');
   await expect(noPagePromise).rejects.toThrow('Unknown content path: no-page');
-
 });
 test('site index', async () => {
   const { component, ...props } = await content('');

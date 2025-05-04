@@ -1,22 +1,25 @@
-import type { ComponentType } from 'svelte';
-import type { ZodObject, ZodSchema } from 'zod'; // Added ZodSchema for more flexibility
+import type { SvelteComponent } from 'svelte';
+import type { ZodObject, ZodSchema } from 'zod';
 import type { Plugin } from 'unified';
+import type { Root as MdastRoot } from 'mdast';
+import type { Root as HastRoot } from 'hast';
 
-type Validator = (
-  content: ComponentContent,
-  reportFileDependency: (filePath: string) => void
-) => Promise<Content>;
+export type ComponentValidator = (
+  content: SourceComponentContent,
+  reportFileDependency: (filePath: string) => void,
+  config: Config
+) => Promise<SourceComponentContent>;
 
 export interface Config {
   root?: string;
   componentRoot: string; // Root directory for Svelte components
   contentRoot: string; // Root directory for content files
-  indexFile: string; // Basename (without extension) of the file representing the root '/' path
+  indexFile?: string; // Basename (without extension) of the file representing the root '/' path
 
   // Parsing/Plugin Options (conflated for now)
-  remarkPlugins?: Plugin<any, Root>[];
-  rehypePlugins?: Plugin<any, Root>[];
-  validator: Validator;
+  remarkPlugins?: Plugin<any, MdastRoot>[];
+  rehypePlugins?: Plugin<any, HastRoot>[];
+  validator?: ComponentValidator;
   markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
   outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
 }
@@ -34,7 +37,7 @@ export interface Fragment {
  * Requires the component path (relative to componentRoot, without .svelte)
  * and allows any other properties to be passed as props.
  */
-export interface ComponentContent {
+export interface SourceComponentContent {
   component: string;
   [key: string]: unknown; // Props for the component
 }
@@ -43,17 +46,34 @@ export interface ComponentContent {
  * Represents the fully processed data for a content page,
  * ready to be used for rendering.
  */
-export interface PageContent {
+export interface SourcePageContent {
   title: string; // Mandatory title for the page
   component?: string; // Optional top-level component for the page layout
-  components?: ComponentContent[]; // Optional list of components within the page body/structure
-  [key: string]: unknown; // Other page-specific data (e.g., from frontmatter)
+  components?: SourceComponentContent[]; // Optional list of components within the page body/structure
+  [key: string]: unknown; // Component data if page is also a component
 }
 
-// --- Utility Types ---
+/**
+ * Runtime ComponentContent: Takes SourceComponentContent, removes the 'component'
+ * property (string), and adds it back as ComponentType. Inherits the index signature.
+ */
+export type ComponentContent = Omit<SourceComponentContent, 'component'> & {
+  component: SvelteComponent; // Override with resolved Svelte Component
+};
 
-/** Type helper for extracting prop types from ComponentContent */
-export type ComponentProps<T extends ComponentContent> = Omit<T, 'component'>;
+/**
+ * Runtime PageContent: Takes SourcePageContent, removes 'component' and 'components',
+ * then adds them back with their runtime types (ComponentType and ComponentContent[]).
+ * Inherits 'title' and the index signature.
+ */
+export type PageContent = Omit<
+  SourcePageContent,
+  'component' | 'components'
+> & {
+  component?: SvelteComponent; // Override with optional resolved ComponentType
+  components?: ComponentContent[]; // Override with list of runtime ComponentContent
+};
+// --- Utility Types ---
 
 /**
  * Generic type for a function that traverses an object/array structure asynchronously.
@@ -64,78 +84,45 @@ export type ContentTraverser<T> = (handle: {
   callback: (val: any) => Promise<any>; // Callback processes filtered values
 }) => Promise<T>;
 
-/**
- * Generic type for a function that traverses an object/array structure synchronously.
- */
-export type ContentTraverserSync<T> = (handle: {
-  obj: T;
-  filter: (val: any) => boolean;
-  callback: (val: any) => any;
-}) => T;
+// --- VFile Augmentation ---
+// This tells TypeScript about the custom properties you add to file.data
 
-// --- Svelte/Vite/Schema Related Types ---
-
-/**
- * Expected structure of the module exported by a Svelte component file,
- * including the component itself and an optional validation schema.
- */
-type ComponentModule = {
-  default: ComponentType;
-  // Allow any Zod schema, not just ZodObject, for flexibility
-  schema?: ZodSchema<any>; // Use base ZodSchema
-};
-
-/**
- * Type representing the result of Vite's `import.meta.glob`, mapping
- * import paths to async functions that load ComponentModules.
- */
-type ComponentMap = Record<string, () => Promise<ComponentModule>>;
-
-/**
- * Represents a Svelte component ready for rendering, coupling the
- * ComponentType with its resolved (and potentially validated) props.
- */
-export interface ResolvedComponent<
-  T extends ComponentContent = ComponentContent
-> {
-  component: ComponentType; // The actual Svelte component constructor
-  props: ComponentProps<T>; // The props for the component instance
+// Define the structure of a heading object as used in your headings plugin
+interface HeadingData {
+  depth: number;
+  text: string;
+  id?: string; // id can be undefined if headerId doesn't find one
 }
 
-// --- Module Augmentations ---
-
-// Augment 'vfile' data map to include custom metadata/properties used by plugins
-import 'vfile'; // Ensure vfile is imported for augmentation
-
+// Augment the VFile module's DataMap interface
 declare module 'vfile' {
   interface DataMap {
-    // Meta information, often passed down or used by multiple plugins
+    // Define the structure of the 'meta' property you access
     meta?: {
       options?: {
-        // Example option used by a hypothetical heading plugin
         decreaseHeadings?: boolean;
-        // Add other shared options as needed
-        [key: string]: unknown; // Allow other options
+        // Add other potential options here if needed
       };
-      // Other meta fields? e.g., sourceFilePath?
+      // Add other potential meta properties here if needed
     };
-    // Properties extracted or generated by plugins, intended to be merged
-    // back into the main content object later.
+
+    // Define the structure of the 'props' property you add and access
+    // Use Record<string, unknown> to allow arbitrary properties,
+    // but explicitly define known ones like 'headings' for better type safety.
     props?: {
-      // Example: Table of contents generated by a heading plugin
-      headings?: { depth: number; slug: string; text: string }[];
-      // Add other extractable props as needed
+      headings?: HeadingData[];
+      // Allows other properties to be added dynamically by plugins/logic
       [key: string]: unknown;
     };
-    // Allow other custom top-level data keys if necessary
-    [key: string]: unknown;
+
+    // You can add other custom top-level properties here if your plugins add them
+    // e.g., if a plugin added file.data.summary, you'd add:
+    // summary?: string;
   }
 }
 
-// Declare the virtual module used to access content
-declare module 'composably:content' {
-  // Define the expected shape of the default export more precisely if possible
-  // For now, using 'any' based on original snippet. Could be Record<string, Promise<PageContent>>?
-  const content: Record<string, Promise<PageContent>>;
-  export default content;
-}
+// Add a placeholder type for PageContent if it's not defined globally
+// Replace this with your actual definition if it exists
+// interface PageContent {
+//  [key: string]: any;
+//}

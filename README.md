@@ -4,6 +4,7 @@ Transforms your content (markdown, yaml, json etc.)
 into validated renderable data - at build time.
 
 ## **1. Setup**
+
 Create a new SvelteKit (^2.20.0) project or use an existing, then install composably:
 
 ```bash
@@ -24,11 +25,10 @@ const config = {
   contentRoot: 'src/content',
   //optional
   remarkPlugins: [],
-  rehypePlugins: [],
+  rehypePlugins: []
 };
 
 export default config;
-
 
 export default defineConfig({
   plugins: [
@@ -52,7 +52,7 @@ const page = await content(path);
 
 ## **2. Your First Page (Markdown + Component)**
 
-Create index.md in contentRoot:
+Create `index.md` in `contentRoot`:
 
 ```markdown
 ---
@@ -70,7 +70,6 @@ Write standard Markdown here, it will be available as
 - Components can be inserted in the document using ::slots
 - Frontmatter can be interpolated with double braces {{title}}
 - Emojis, definition lists, extended tables and more...
-
 ```
 
 Create a component Page.svelte in `componentRoot`:
@@ -94,14 +93,14 @@ Create a component Page.svelte in `componentRoot`:
 <h1>{title}</h1>
 
 {#if body.headings && body.headings.length > 0}
-  <nav>
-    <strong>On this page:</strong>
-    <ul>
-      {#each body.headings as heading}
-        <li><a href="#{heading.id}">{heading.text}</a></li>
-      {/each}
-    </ul>
-  </nav>
+<nav>
+  <strong>On this page:</strong>
+  <ul>
+    {#each body.headings as heading}
+    <li><a href="#{heading.id}">{heading.text}</a></li>
+    {/each}
+  </ul>
+</nav>
 {/if}
 
 <body.component {...body} />
@@ -180,7 +179,7 @@ Load it: `const features = await content('features')`;
 
 Define common content once, reuse everywhere.
 
-Create `content/_author-jane.yaml` (leading _ ignored in route discovery):
+Create `content/_author-jane.yaml` (leading \_ ignored in route discovery):
 
 ```yaml
 component: AuthorBio
@@ -196,6 +195,7 @@ Create `src/components/AuthorBio.svelte`:
   export const schema = c.content({ name: c.string(), bio: c.string() });
 </script>
 <script> let { name, bio } = $props(); </script>
+
 <span><strong>{name}</strong> ({bio})</span>
 ```
 
@@ -207,6 +207,7 @@ component: BlogPost
 title: My Awesome Post
 author: _author-jane.yaml # <-- Reference the fragment!
 ---
+
 Blog content here...
 ```
 
@@ -261,9 +262,9 @@ Now, right here, I want my image carousel:
 And the text continues after the embedded component. How cool is that?
 ```
 
-Ensure src/components/Page.svelte schema includes slots:
+Ensure `src/components/Page.svelte` schema includes slots:
 
-```
+```typescript
 // <script module> in Page.svelte
 import { c } from 'composably/schemas';
 export const schema = c.content({
@@ -274,11 +275,11 @@ export const schema = c.content({
 // ... rest of Page.svelte ...
 ```
 
-Create src/components/Swiper.svelte with its schema (slides: c.array(...)). Composably's c.markdown processor magically replaces ::carousel with the rendered Swiper component!
+Create `src/components/Swiper.svelte` with its schema (slides: c.array(...)). Composably's `c.markdown` processor magically replaces `::carousel` with the rendered Swiper component!
 
 ## **6. Built-in Power & Extensibility**
 
-Composably comes with the following features out-of-the-box:
+Composably's markdown parser comes with the following features out-of-the-box:
 
 - **Markdown Processing:** Includes standard Markdown, GitHub Flavored Markdown, and syntax highlighting for code blocks.
 - **Heading Extraction:** As seen in step 2, the body.headings prop on your c.markdown() field gives you structured access to all h1-h6 tags (text, id, depth) – perfect for auto-generating Tables of Contents!
@@ -297,9 +298,9 @@ This package is currently in the **early alpha stage** of development. While fun
 
 Testers and contributors are warmly welcome! Your feedback, bug reports, and code contributions are highly valuable at this stage.
 
-*(Note: The `/dist` directory is currently included in the repository to allow direct installation from GitHub via `npm install kompismoln/composably`. This may change as the project matures towards a stable release.)*
+_(Note: The `/dist` directory is currently included in the repository to allow direct installation from GitHub via `npm install kompismoln/composably`. This may change as the project matures towards a stable release.)_
 
-## Getting Started with Development
+### Getting Started with Development
 
 Follow these steps to set up the project locally for development or testing:
 
@@ -309,6 +310,7 @@ Follow these steps to set up the project locally for development or testing:
     cd composably
     ```
 2.  **Install dependencies:**
+
     ```bash
     # Using npm
     npm install
@@ -319,15 +321,17 @@ Follow these steps to set up the project locally for development or testing:
     # Or using yarn
     # yarn install
     ```
-3.  **Start the development server:**
-    > 💡 Set `DEBUG=composably*` for verbose logging during `npm run dev`, `npm run test`, or `npm run build`.
 
+3.  **Start the development server:**
+
+    > 💡 Set `DEBUG=composably*` for verbose logging during `npm run dev`, `npm run test`, or `npm run build`.
 
     This runs the example site included in the repository, using the local version of the plugin.
 
     ```bash
     npm run dev
     ```
+
 4.  **Run tests:**
     ```bash
     npm run test      # Runs unit tests once
@@ -349,5 +353,7 @@ Follow these steps to set up the project locally for development or testing:
 ### Using Nix (Optional)
 
 If you use Nix, you can enter a reproducible development shell with all required dependencies activated:
+
 ```bash
 nix develop
+```
