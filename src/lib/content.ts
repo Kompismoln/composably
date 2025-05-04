@@ -7,7 +7,8 @@ import { parseComponentContent } from './parsers.js';
 import type {
   SourceComponentContent,
   Config,
-  SourcePageContent
+  SourcePageContent,
+  Fragment
 } from './types.d.ts';
 import { contentTraverser } from './utils.js';
 import { colocate } from './validators.js';
@@ -27,65 +28,65 @@ const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
  * @returns A Promise resolving to the fully processed page data (type SourcePageContent).
  */
 export const loadContent = async (
-  searchPath: string,
+  localPath: string,
   config: Config,
   reportVirtualComponent: (component: SourceComponentContent) => void,
   reportFileDependency: (filePath: string) => void
 ): Promise<SourcePageContent> => {
   // Return type is the Promise for the main content
 
-  const fileSearchPath =
-    searchPath === '' ? config.indexFile || 'index' : searchPath;
+  localPath ||= config.indexFile || 'index';
 
   // Start by finding the root content file
-  let { filePath, content: pageData } = await findAndParseContentFile(
-    fileSearchPath,
-    config
-  );
+  const { absPath, content } = await findAndParseContentFile(localPath, config);
 
-  // This check should probably be centralized, or the whole
-  // project root resolution moved to the callback.
-  if (!config.root) {
-    throw new Error('The config.root property has not been set.');
-  }
+  let pageData = content as SourcePageContent;
+
   // Report the main file as a dependency
-  reportFileDependency(path.resolve(config.root, filePath));
+  reportFileDependency(absPath);
 
   // Apply transformations using the contentTraverser utility.
   // The traverser modifies pageData in place or returns a new object for pageData
   // to be reassigned to.
 
   // 1. Load and attach fragments recursively
-  pageData = await contentTraverser({
+  pageData = (await contentTraverser({
     obj: pageData,
     filter: (obj) =>
       typeof obj === 'object' &&
       obj !== null &&
       Object.keys(obj).some((key) => key.startsWith('_')),
     callback: (obj) => loadAndAttachFragments(obj, config, reportFileDependency)
-  });
+  })) as SourcePageContent;
 
   // 2. Validate and transform regular components based on schema
-  pageData = await contentTraverser({
+  pageData = (await contentTraverser({
     obj: pageData,
     filter: (obj) =>
       typeof obj?.component === 'string' &&
       !obj.component.startsWith('composably:'),
     callback: (obj) => {
       const validator = config.validator || colocate;
-      return validator(obj, reportFileDependency, config);
+      return validator(
+        obj as SourceComponentContent,
+        reportFileDependency,
+        config
+      );
     }
-  });
+  })) as SourcePageContent;
 
   // 3. Process virtual components (e.g., parse markdown) AND trigger callback
-  pageData = await contentTraverser({
+  pageData = (await contentTraverser({
     obj: pageData,
     filter: (obj) =>
       typeof obj?.component === 'string' &&
       obj.component.startsWith('composably:'),
     // Callback: Process the virtual component AND call the provided handler
     callback: async (obj) => {
-      const processedComp = await processVirtualComponent(obj, config);
+      const processedComp = await processVirtualComponent(
+        obj as SourceComponentContent,
+        config
+      );
       // Call the callback with the processed component
       // Ensure processedComp has the necessary structure (e.g., component name)
       reportVirtualComponent(processedComp);
@@ -93,10 +94,10 @@ export const loadContent = async (
       // Return the processed component to potentially update the tree
       return processedComp;
     }
-  });
+  })) as SourcePageContent;
 
   // After all traversals, the final pageData is ready.
-  return pageData as SourcePageContent; // Assert or validate final type
+  return pageData;
 };
 
 /**
@@ -143,45 +144,6 @@ export const discoverContentPaths = (config: Config): string[] => {
 // --- File Parsing Logic ---
 
 /**
- * Parse file content based on its extension.
- * @param filePath Absolute path to the file.
- * @param fileExt File extension (e.g., '.md').
- * @returns Parsed data from the file.
- */
-const parseFileContent = async (filePath: string): Promise<any> => {
-  const fileExt = path.extname(filePath);
-  if (['.js', '.ts'].includes(fileExt)) {
-    // Using /* @vite-ignore */ is necessary for dynamic imports where the
-    // exact path isn't known statically.
-    // Ensure this works with your build tool configuration.
-    // Consider security implications if filePath could be user-influenced.
-    const module = await import(/* @vite-ignore */ filePath);
-    return module.default; // Assuming default export contains the content
-  }
-
-  const fileContent = await fs.readFile(filePath, 'utf-8');
-
-  if (fileExt === '.md') {
-    const { data, content: body } = matter(fileContent);
-    // Return frontmatter data and raw markdown content separately
-    // The parsing of 'markdown' happens later in processVirtualComponent
-    // if needed
-    return { ...data, body };
-  }
-  if (['.yml', '.yaml'].includes(fileExt)) {
-    return yaml.load(fileContent);
-  }
-  if (fileExt === '.json') {
-    return JSON.parse(fileContent);
-  }
-
-  // Should not happen if called correctly, but acts as a safeguard.
-  throw new Error(
-    `Unsupported file extension: '${fileExt}' for file: ${filePath}`
-  );
-};
-
-/**
  * Find and parse a content file by trying different extensions.
  * @param searchPath Relative path within contentRoot (without extension).
  * @param config The application configuration object.
@@ -189,32 +151,33 @@ const parseFileContent = async (filePath: string): Promise<any> => {
  * @throws Error if no matching file is found.
  */
 const findAndParseContentFile = async (
-  searchPath: string,
+  localPath: string,
   config: Config
-): Promise<any> => {
+): Promise<{ absPath: string; content: Fragment }> => {
   for (const ext of filetypes) {
-    const filePath = path.join(config.contentRoot, `${searchPath}.${ext}`);
+    const absPath = `${toAbsolutePath(localPath, config)}.${ext}`;
     try {
       // Check existence first to provide clearer ENOENT handling if needed,
       // though readFile will also throw ENOENT. Stat adds an extra check.
       // await fs.access(filePath); // Optional: uncomment if finer-grained
       // error handling is needed
-      const content = await parseFileContent(filePath);
-      return { filePath, content };
-    } catch (error: any) {
-      // Continue loop only if file not found or module import failed
-      // specifically because of missing file
-      if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(error.code)) {
-        continue;
+      const content = await parseFileContent(absPath);
+      return { absPath, content };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = String((error as { code: unknown }).code);
+        if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(errorCode)) {
+          continue;
+        }
       }
       // Log or handle other errors more specifically if needed
-      console.error(`Error parsing file ${filePath}:`, error);
+      console.error(`Error parsing file ${absPath}:`, error);
       throw error; // Re-throw other errors (permissions, syntax errors, etc.)
     }
   }
   // If loop completes without finding a file
   throw new Error(
-    `Content file not found for path: '${searchPath}' (checked extensions: ${filetypes.join(', ')}) in ${config.contentRoot}`
+    `Content file not found for path: '${localPath}' (checked extensions: ${filetypes.join(', ')}) in ${config.contentRoot}`
   );
 };
 
@@ -242,28 +205,11 @@ const loadAndAttachFragments = async (
 ): Promise<Record<string, unknown>> => {
   let currentResult: Record<string, unknown> = { ...obj }; // Start with a shallow copy
 
-  const contentPath = (fragmentPath: string): string => {
-    // Ensure fragmentPath is treated relative to contentRoot
-    // Avoid joining absolute paths directly
-    const resolvedFragmentPath = path.isAbsolute(fragmentPath)
-      ? fragmentPath // Or handle error/warning?
-      : path.join(config.contentRoot, fragmentPath);
-
-    // This check should probably be centralized, or the whole
-    // project root resolution moved to the callback.
-    if (!config.root) {
-      throw new Error('The config.root property has not been set.');
-    }
-    // Ensure the final reported path is absolute from the project root
-    const absolutePath = path.resolve(config.root, resolvedFragmentPath);
-    reportFileDependency(absolutePath);
-    return absolutePath; // Return the absolute path for parsing
-  };
-
   // 1. Handle root fragment reference ('_')
   if ('_' in currentResult && typeof currentResult._ === 'string') {
-    const fragmentPath = contentPath(currentResult._);
-    let fragmentContent = await parseFileContent(fragmentPath);
+    const absPath = toAbsolutePath(currentResult._, config);
+    const fragmentContent = await parseFileContent(absPath);
+    reportFileDependency(absPath);
 
     delete currentResult._;
 
@@ -273,8 +219,8 @@ const loadAndAttachFragments = async (
   }
 
   // 2. Handle named fragment references ('_key') recursively and merge results
-  let processedFragments: Record<string, any> = {};
-  let keysToRemove: string[] = [];
+  const processedFragments: Fragment = {};
+  const keysToRemove: string[] = [];
 
   // Iterate over a copy of keys, as we might modify currentResult
   const keys = Object.keys(currentResult);
@@ -285,10 +231,11 @@ const loadAndAttachFragments = async (
       key.length > 1 &&
       typeof currentResult[key] === 'string'
     ) {
-      const fragmentPath = contentPath(currentResult[key]);
       const newKey = key.slice(1); // Remove the leading underscore
 
-      let fragmentContent = await parseFileContent(fragmentPath);
+      const absPath = toAbsolutePath(currentResult[key], config);
+      const fragmentContent = await parseFileContent(absPath);
+      reportFileDependency(absPath);
 
       // Store processed fragment under the new key
       processedFragments[newKey] = fragmentContent;
@@ -341,6 +288,56 @@ const processVirtualComponent = async (
   }
   // If no markdown, return the content as is
   return content;
+};
+
+/**
+ * Parse file content based on its extension.
+ * @param filePath Absolute path to the file.
+ * @param fileExt File extension (e.g., '.md').
+ * @returns Parsed data from the file.
+ */
+const parseFileContent = async (absPath: string): Promise<Fragment> => {
+  const fileExt = path.extname(absPath);
+
+  if (['.js', '.ts'].includes(fileExt)) {
+    // Using /* @vite-ignore */ is necessary for dynamic imports where the
+    // exact path isn't known statically.
+    // Ensure this works with your build tool configuration.
+    // Consider security implications if filePath could be user-influenced.
+    const module = await import(/* @vite-ignore */ absPath);
+    return module.default; // Assuming default export contains the content
+  }
+
+  const fileContent = await fs.readFile(absPath, 'utf-8');
+
+  if (fileExt === '.md') {
+    const { data, content: body } = matter(fileContent);
+    // Return frontmatter data and raw markdown content separately
+    // The parsing of 'markdown' happens later in processVirtualComponent
+    // if needed
+    return { ...data, body };
+  }
+  if (['.yml', '.yaml'].includes(fileExt)) {
+    return yaml.load(fileContent) as Fragment;
+  }
+  if (fileExt === '.json') {
+    return JSON.parse(fileContent);
+  }
+
+  // Should not happen if called correctly, but acts as a safeguard.
+  throw new Error(
+    `Unsupported file extension: '${fileExt}' for file: ${absPath}`
+  );
+};
+
+const toAbsolutePath = (localPath: string, config: Config): string => {
+  if (!config.root) {
+    throw new Error('The config.root property has not been set.');
+  }
+  const fullPath = path.join(config.contentRoot, localPath);
+  const absolutePath = path.resolve(config.root, fullPath);
+
+  return absolutePath;
 };
 
 // --- Exported Functions ---

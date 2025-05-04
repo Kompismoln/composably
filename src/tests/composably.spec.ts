@@ -3,6 +3,7 @@ import { __test__ } from '../lib/content.js';
 import config from '../../composably.config.js';
 import { contentTraverser } from '$lib/utils.js';
 import path from 'node:path';
+import type { Fragment } from '$lib/types.js';
 
 config.root = process.cwd();
 
@@ -25,7 +26,7 @@ function getExpectedReportedPath(fragmentPath: string): string {
   return absolutePath;
 }
 async function testFragment(
-  obj: Record<string, unknown>,
+  obj: Fragment,
   reportFn: (filePath: string) => void
 ) {
   return await contentTraverser({
@@ -56,12 +57,7 @@ test('fragments', async () => {
   mockReportFn = vi.fn();
   obj = { _test: 'test/_test-0.yaml' }; // Assuming _test-0.yaml results in {}
   const result0Named = await testFragment(obj, mockReportFn); // Expect { test: {} }
-  expect(result0Named).deep.equal({ test: undefined }); // Check if 'test' property exists
-  // If _test-0.yaml IS truly empty {}, then .test will be {} which is not undefined.
-  // If you want to check if test has no meaningful props, check keys or specific content.
-  // Or if test-0.yaml makes test *not* be added, adjust expectation.
-  // Let's assume test-0 results in {}:
-  expect(Object.keys(result0Named.test ?? {}).length).toBe(0);
+  expect(result0Named).toEqual({ test: undefined }); // Check if 'test' property exists
   expect(mockReportFn).toHaveBeenCalledTimes(1);
   expect(mockReportFn).toHaveBeenCalledWith(
     getExpectedReportedPath('test/_test-0.yaml')
@@ -71,7 +67,7 @@ test('fragments', async () => {
   mockReportFn = vi.fn();
   obj = { _: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
   const result1 = await testFragment(obj, mockReportFn);
-  expect(result1.foo).eq('bar');
+  expect(result1).toEqual({ foo: 'bar' });
   expect(mockReportFn).toHaveBeenCalledTimes(1);
   expect(mockReportFn).toHaveBeenCalledWith(
     getExpectedReportedPath('test/_test-1.yaml')
@@ -82,7 +78,7 @@ test('fragments', async () => {
   obj = { _test: 'test/_test-1.yaml' }; // Assuming _test-1.yaml contains { foo: 'bar' }
   // Expect { test: { foo: 'bar' } } which fits TestResult1's optional 'test' prop shape
   const result1Named = await testFragment(obj, mockReportFn);
-  expect(result1Named.test?.foo).eq('bar'); // Use optional chaining for safety if test might be undefined
+  expect(result1Named).toEqual({ test: { foo: 'bar' } });
   expect(mockReportFn).toHaveBeenCalledTimes(1);
   expect(mockReportFn).toHaveBeenCalledWith(
     getExpectedReportedPath('test/_test-1.yaml')
@@ -92,7 +88,7 @@ test('fragments', async () => {
   mockReportFn = vi.fn();
   obj = { _: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
   const result2Root = await testFragment(obj, mockReportFn);
-  expect(result2Root.test2.foo).eq('bar');
+  expect(result2Root).toEqual({ test2: { foo: 'bar' } });
   expect(mockReportFn).toHaveBeenCalledTimes(2);
   expect(mockReportFn).toHaveBeenCalledWith(
     getExpectedReportedPath('test/_test-1.yaml')
@@ -106,7 +102,7 @@ test('fragments', async () => {
   obj = { _test: 'test/_test-2.yaml' }; // Assuming _test-2.yaml contains { test2: { foo: 'bar' } }
   // Expect { test: { test2: { foo: 'bar' } } } which matches TestResultDeep
   const result2Named = await testFragment(obj, mockReportFn);
-  expect(result2Named.test.test2.foo).eq('bar');
+  expect(result2Named).toEqual({ test: { test2: { foo: 'bar' } } });
   expect(mockReportFn).toHaveBeenCalledWith(
     getExpectedReportedPath('test/_test-1.yaml')
   );

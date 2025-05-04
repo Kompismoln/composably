@@ -22,7 +22,7 @@
   </div>
 {/if}
 <div data-testid="headings">
-  {#each body.headings as heading}
+  {#each body.headings as heading (heading.id)}
     <a href="#{heading.id}">{heading.text} {heading.depth}</a>
   {/each}
 </div>

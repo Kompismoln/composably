@@ -9,9 +9,10 @@ export const contentTraverser: ContentTraverser = async ({
   filter
 }) => {
   if (Array.isArray(obj)) {
-    const newArr = await Promise.all(
+    const results = await Promise.all(
       obj.map((item) => contentTraverser({ obj: item, filter, callback }))
     );
+    const newArr = results.flat() as Fragment[];
     return newArr;
   }
   if (typeof obj === 'object' && obj !== null) {
@@ -24,25 +25,20 @@ export const contentTraverser: ContentTraverser = async ({
       newObj = await callback(obj);
     }
 
-    newObj = await Object.fromEntries(
-      await Promise.all(
-        Object.entries(newObj).map(async ([key, item]) => {
-          if (
-            typeof item !== 'object' ||
-            item === null ||
-            Array.isArray(item)
-          ) {
-            return [key, item];
-          }
-          const newItem = await contentTraverser({
-            obj: item as Fragment,
-            filter,
-            callback
-          });
-          return [key, newItem];
-        })
-      )
+    const entries = await Promise.all(
+      Object.entries(newObj).map(async ([key, item]) => {
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+          return [key, item];
+        }
+        const newItem = await contentTraverser({
+          obj: item as Fragment,
+          filter,
+          callback
+        });
+        return [key, newItem];
+      })
     );
+    newObj = Object.fromEntries(entries);
 
     return newObj;
   }

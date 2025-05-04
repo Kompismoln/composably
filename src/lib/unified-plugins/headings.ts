@@ -2,12 +2,8 @@ import { visit } from 'unist-util-visit';
 import type { Root, Heading } from 'mdast';
 import type { VFile } from 'vfile';
 import { toString } from 'mdast-util-to-string';
+import type { HeadingData } from '../types.d.ts';
 
-interface HeadingData {
-  depth: number;
-  text: string;
-  id?: string;
-}
 /* Do heading stuff
  * - Add id
  * - Decrease depth
