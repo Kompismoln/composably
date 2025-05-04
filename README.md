@@ -39,7 +39,7 @@ export default defineConfig({
 ```
 
 The plugin exposes a pre-built virtual module `composably:content` with all
-content under `contentRoot`:
+content it has discovered under your `contentRoot` (e.g. `src/lib/content`):
 
 ```typescript
 // src/routes/your-ssg/[...path]/+page.ts
@@ -50,9 +50,9 @@ const page = await content(path);
 <page.component {...page} />
 ```
 
-## **2. Your First Page (Markdown + Component)**
+## **2. Markdown example**
 
-Create `index.md` in `contentRoot`:
+Given this `index.md` directly in `contentRoot`:
 
 ```markdown
 ---
@@ -72,7 +72,7 @@ Write standard Markdown here, it will be available as
 - Emojis, definition lists, extended tables and more...
 ```
 
-Create a component Page.svelte in `componentRoot`:
+Create a component Page.svelte in `componentRoot` (e.g. `src/lib/components`):
 
 ```html
 <script module>
@@ -128,11 +128,9 @@ Render in `src/routes/+page.svelte`:
 
 Boom! Validated, pre-loaded content from markdown.
 
-## **3. Structured Data (YAML Power)**
+## **3. YAMLs work as expected**
 
-Need structured lists, like features? Use YAML!
-
-Create `content/features.yaml`:
+`content/features.yaml`:
 
 ```yaml
 component: FeatureList
@@ -175,7 +173,7 @@ Create `src/components/FeatureList.svelte`:
 
 Load it: `const features = await content('features')`;
 
-## **4. Reusable Content (Fragments - DRY!)**
+## **4. Reusable Content**
 
 Define common content once, reuse everywhere.
 
