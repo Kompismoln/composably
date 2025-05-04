@@ -235,32 +235,12 @@ const findAndParseContentFile = async (
  * @returns A Promise resolving to a new object of the shape TExpected,
  * with fragments loaded and merged/attached.
  */
-const loadAndAttachFragments = async <TExpected = Record<string, unknown>>( // Default to a generic object if not specified
-  obj:
-    | Record<string, any>
-    | null
-    | undefined
-    | string
-    | number
-    | boolean
-    | Array<any>, // Accept any JSON-like input
+const loadAndAttachFragments = async (
+  obj: Record<string, unknown>,
   config: Config,
-  reportFileDependency: (filePath: string) => void // Callback function signature
-): Promise<TExpected> => {
-  // Promise to return the type the caller expects
-  // Base case: If it's not an object worth traversing, return as is.
-  // Need to cast non-object types to TExpected at the return points.
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-    // If the input wasn't an object, we assume it doesn't change.
-    // However, the function *promises* TExpected. This cast acknowledges
-    // that if the caller expects an object but provides a primitive,
-    // the type might not match reality. The caller should ideally provide
-    // primitives only when TExpected is also a primitive type.
-    return obj as TExpected;
-  }
-
-  // Now we know obj is a Record<string, any> essentially
-  let currentResult: Record<string, any> = { ...obj }; // Start with a shallow copy
+  reportFileDependency: (filePath: string) => void
+): Promise<Record<string, unknown>> => {
+  let currentResult: Record<string, unknown> = { ...obj }; // Start with a shallow copy
 
   const contentPath = (fragmentPath: string): string => {
     // Ensure fragmentPath is treated relative to contentRoot
@@ -285,19 +265,7 @@ const loadAndAttachFragments = async <TExpected = Record<string, unknown>>( // D
     const fragmentPath = contentPath(currentResult._);
     let fragmentContent = await parseFileContent(fragmentPath);
 
-    // Recursively process fragments within the loaded fragment.
-    // We expect the fragment content to conform to TExpected potentially,
-    // but its internal structure might be different. We pass Record<string, any>
-    // for flexibility and cast the final result later.
-    fragmentContent = await loadAndAttachFragments<Record<string, unknown>>( // Use a generic type internally
-      fragmentContent,
-      config,
-      reportFileDependency
-    );
-
-    // Cache the original '_' value before deleting
-    const originalUnderscoreValue = currentResult._;
-    delete currentResult._; // Remove the reference key *before* merging
+    delete currentResult._;
 
     // Merge the fragment content. Let properties originally in currentResult
     // (other than '_') override fragment properties if keys clash.
@@ -322,25 +290,9 @@ const loadAndAttachFragments = async <TExpected = Record<string, unknown>>( // D
 
       let fragmentContent = await parseFileContent(fragmentPath);
 
-      // Recursively process fragments within the loaded fragment
-      fragmentContent = await loadAndAttachFragments<Record<string, unknown>>( // Use generic type internally
-        fragmentContent,
-        config,
-        reportFileDependency
-      );
-
       // Store processed fragment under the new key
       processedFragments[newKey] = fragmentContent;
       keysToRemove.push(key); // Mark original '_key' for removal
-    } else if (typeof currentResult[key] === 'object') {
-      // Recursively process nested objects that aren't fragments themselves
-      // Important: Pass the expected type recursively if possible,
-      // otherwise default to Record<string, unknown> or any.
-      // This part is tricky without knowing TExpected's structure.
-      // For simplicity, we'll process recursively but rely on the final cast.
-      currentResult[key] = await loadAndAttachFragments<
-        Record<string, unknown>
-      >(currentResult[key], config, reportFileDependency);
     }
   }
 
@@ -349,15 +301,9 @@ const loadAndAttachFragments = async <TExpected = Record<string, unknown>>( // D
     delete currentResult[keyToRemove];
   }
 
-  // Merge the processed named fragments with the current result.
-  // Ensure properties already in currentResult (that weren't '_keys')
-  // take precedence over newly attached fragments if keys clash.
   currentResult = { ...processedFragments, ...currentResult };
 
-  // *** Crucial Step ***
-  // The function promises TExpected, but internally builds an object.
-  // We trust the caller and the process and cast the final result.
-  return currentResult as TExpected;
+  return currentResult;
 };
 
 // --- Component Processing ---
