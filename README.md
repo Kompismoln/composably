@@ -298,8 +298,6 @@ This package is currently in the **early alpha stage** of development. While fun
 
 Testers and contributors are warmly welcome! Your feedback, bug reports, and code contributions are highly valuable at this stage.
 
-_(Note: The `/dist` directory is currently included in the repository to allow direct installation from GitHub via `npm install kompismoln/composably`. This may change as the project matures towards a stable release.)_
-
 ### Getting Started with Development
 
 Follow these steps to set up the project locally for development or testing:
