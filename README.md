@@ -12,13 +12,11 @@ npm install composably
 ```
 
 In your vite.config.ts, add composably() and pass a config with the locations
-for your content and components. Replace sveltekit if it exists.
+for your content and components.
 
 ```typescript
 // vite.config.ts
-import { defineConfig } from 'vite';
-// import { sveltekit } from '@sveltejs/kit/vite'; // Remove this
-import { composably } from 'composably/vite'; // Import this
+import { composably } from 'composably/vite';
 
 const config = {
   componentRoot: 'src/components',
@@ -28,12 +26,9 @@ const config = {
   rehypePlugins: []
 };
 
-export default config;
-
 export default defineConfig({
   plugins: [
-    // sveltekit() // Replace this...
-    composably(config) // ...with this!
+    composably(config)
   ]
 });
 ```
