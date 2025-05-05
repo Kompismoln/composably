@@ -68,11 +68,12 @@ export const loadContent = async (
       !obj.component.startsWith('composably:'),
     callback: (obj) => {
       const validator = config.validator || colocate;
-      return validator(
+      const newObj = validator(
         obj as SourceComponentContent,
         reportFileDependency,
         config
       );
+      return newObj;
     }
   })) as SourcePageContent;
 

@@ -27,11 +27,11 @@ export const contentTraverser: ContentTraverser = async ({
 
     const entries = await Promise.all(
       Object.entries(newObj).map(async ([key, item]) => {
-        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        if (typeof item !== 'object' || item === null) {
           return [key, item];
         }
         const newItem = await contentTraverser({
-          obj: item as Fragment,
+          obj: item as Fragment | Fragment[],
           filter,
           callback
         });

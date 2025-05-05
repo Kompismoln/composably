@@ -1,0 +1,13 @@
+title: List page
+component: Page
+components:
+  - _: _fragment.yaml
+  - component: Fragment
+    slots:
+      slot:
+        component: Slot
+        sentinel:
+          id: list-item-slot-prop
+          text: list-item-slot
+    text: |
+      ::slot

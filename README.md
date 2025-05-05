@@ -27,9 +27,7 @@ const config = {
 };
 
 export default defineConfig({
-  plugins: [
-    composably(config)
-  ]
+  plugins: [composably(config)]
 });
 ```
 
@@ -163,7 +161,7 @@ Create `src/components/FeatureList.svelte`:
 
 <h2>{title}</h2>
 <ul>
-  {#each features as feature}
+  {#each features as feature, key (key)}
     <li><strong>{feature.name}:</strong> {feature.description}</li>
   {/each}
 </ul>

@@ -1,12 +1,21 @@
+<script module>
+  import { c } from '../lib/schemas.js';
+
+  export const schema = c.content({
+    title: c.string(),
+    components: c.array(c.component()).optional()
+  });
+</script>
+
 <script lang="ts">
   let page = $props();
 </script>
 
-{#if page.component}
-  <page.component {...page} />
-{/if}
+<h1 data-testid="page-title">{page.title}</h1>
+
+{page.component}
 {#if page.components}
-  {#each page.components as section (section)}
+  {#each page.components as section, key (key)}
     <section.component {...section} />
   {/each}
 {/if}

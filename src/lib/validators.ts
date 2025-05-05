@@ -10,9 +10,6 @@ export const colocate = async (
   const componentFilePath = `${config.componentRoot}/${content.component}.svelte`;
 
   const schema = await getSchema(componentFilePath);
-  if (!schema?.spa) {
-    return content;
-  }
   const result = await schema.spa(content);
 
   if (!result.success) {

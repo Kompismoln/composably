@@ -118,8 +118,19 @@ declare module 'vfile' {
   }
 }
 
-// Add a placeholder type for PageContent if it's not defined globally
-// Replace this with your actual definition if it exists
-// interface PageContent {
-//  [key: string]: any;
-//}
+import type {
+  Extension as MicromarkExtension,
+  HtmlExtension as MicromarkHtmlExtension
+} from 'micromark-util-types';
+import type { FromMarkdownExtension } from 'mdast-util-from-markdown';
+import type { ToMarkdownExtension } from 'mdast-util-to-markdown';
+
+// === Augmentation Start ===
+// Tell TypeScript that the unified processor's data object can hold these properties.
+declare module 'unified' {
+  interface Data {
+    micromarkExtensions?: (MicromarkExtension | MicromarkHtmlExtension)[];
+    fromMarkdownExtensions?: FromMarkdownExtension[];
+    toMarkdownExtensions?: ToMarkdownExtension[];
+  }
+}

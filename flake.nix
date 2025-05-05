@@ -40,6 +40,7 @@
         default = pkgs.mkShell {
           name = "${name}-dev";
           packages = with pkgs; [
+            pnpm
             node2nix
             nodejs_23
             nodePackages.svelte-language-server

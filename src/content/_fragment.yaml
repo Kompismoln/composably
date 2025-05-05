@@ -2,6 +2,8 @@ component: Fragment
 slots:
   slot:
     component: Slot
-    sentinel: hello
+    sentinel:
+      id: fragment-slot-prop
+      text: fragment-slot
 text: |
   ::slot

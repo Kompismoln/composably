@@ -1,18 +1,19 @@
 import { render } from '@testing-library/svelte';
 import content from 'composably:content';
-import about from 'composably:content/about';
+import page from 'composably:content/page';
 import { expect, test } from 'vitest';
 
 test('direct page import', async () => {
-  const { component, ...props } = await about();
+  const { component, ...props } = await page();
   const { getByTestId } = render(component, { props });
-  expect(getByTestId('h1').innerHTML).toBe('About');
+  expect(getByTestId('page-title').innerHTML).toBe('List page');
 });
 
-test('site about', async () => {
-  const { component, ...props } = await content('about');
+test('free page', async () => {
+  const { component, ...props } = await content('page');
   const { getByTestId } = render(component, { props });
-  expect(getByTestId('h1').innerHTML).toBe('About');
+  expect(getByTestId('list-item-slot-prop').innerHTML).toBe('list-item-slot');
+  expect(getByTestId('fragment-slot-prop').innerHTML).toBe('fragment-slot');
 });
 test('site 404', async () => {
   const noPagePromise = content('no-page');
@@ -23,9 +24,9 @@ test('site index', async () => {
   const { getByTestId, getByLabelText } = render(component, { props });
 
   expect(getByTestId('h1').innerHTML).toBe('Hello');
-  expect(getByTestId('slot-prop').innerHTML).toBe('hello');
+  expect(getByTestId('fragment-slot-prop').innerHTML).toBe('fragment-slot');
   expect(getByTestId('fragment-component').children[0].textContent).toBe(
-    'hello'
+    'fragment-slot'
   );
   expect(getByTestId('test-body').children[0].tagName).toBe('H2');
   expect(getByTestId('test-body').children[0].id).toBe('h2-id');

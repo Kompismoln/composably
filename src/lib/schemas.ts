@@ -30,7 +30,7 @@ const handler = {
       return z[prop as keyof typeof z];
     }
     // Return undefined or throw an error if prop is not found anywhere
-    return undefined;
+    throw new Error(`ComposablyZod has no property '${prop}'`);
   }
 };
 
