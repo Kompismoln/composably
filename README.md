@@ -1,7 +1,21 @@
 # **Composably ✨**
 
-Transforms your content (markdown, yaml, json etc.)
-into validated renderable data - at build time.
+Composably is a build-time content processing and integration plugin for Vite and SvelteKit.
+It enhances the build process by automatically discovering, parsing, validating, and
+transforming content from files (like Markdown and YAML) into structured data readily
+consumable by Svelte components, ensuring type safety along the way.
+
+The content is analyzed before SvelteKit processes components (or do anything really),
+this makes it possible to inject virtual components from content, which is useful
+if you want to be able to for example use components in your markdown
+(without making markdown components).
+
+This effectively makes SvelteKit a Static Site Generator much like Astro, Hugo and Jekyll.
+For those of you who take progressive enhancement seriously: Here's your opportunity
+to really start from the bottom.
+
+The API is currently a bit unpolished, but the showcase pages and `composably.spec.svelte.ts`
+describe most of the functionality that this plugin provides. Feel free to clone and hack.
 
 ## **1. Setup**
 
