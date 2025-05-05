@@ -36,7 +36,6 @@ export const loadContent = async (
   reportVirtualComponent: (component: SourceComponentContent) => void,
   reportFileDependency: (filePath: string) => void
 ): Promise<SourcePageContent> => {
-
   // Decide which name to map the empty path to.
   localPath ||= config.indexFile || 'index';
 
@@ -120,19 +119,19 @@ export const discoverContentPaths = (config: Config): string[] => {
 
   return (
     globSync(pattern)
-    // Filter out files starting with underscore (fragments)
-    .filter((filePath: string) => path.basename(filePath)[0] !== '_')
-    // Map absolute path to relative site path
-    .map((filePath: string) => {
-      const relativePath = path.relative(config.contentRoot, filePath);
-      const { dir, name } = path.parse(relativePath);
-      const sitePath = path.join(dir, name);
+      // Filter out files starting with underscore (fragments)
+      .filter((filePath: string) => path.basename(filePath)[0] !== '_')
+      // Map absolute path to relative site path
+      .map((filePath: string) => {
+        const relativePath = path.relative(config.contentRoot, filePath);
+        const { dir, name } = path.parse(relativePath);
+        const sitePath = path.join(dir, name);
 
-      // Handle index file mapping (e.g., 'index' -> '')
-      return sitePath === (config.indexFile || 'index')
-        ? ''
-        : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
-    })
+        // Handle index file mapping (e.g., 'index' -> '')
+        return sitePath === (config.indexFile || 'index')
+          ? ''
+          : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
+      })
   );
 };
 

@@ -1,12 +1,13 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import { discoverContentPaths, loadContent } from './content.js';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { default as Debug } from 'debug';
+
 import type {
   SourceComponentContent,
   Config,
   SourcePageContent
 } from './types.d.ts';
-import { sveltekit } from '@sveltejs/kit/vite';
-import { default as Debug } from 'debug';
 
 const logBase = Debug('composably');
 const logConfig = Debug('composably:config');
@@ -45,8 +46,10 @@ const VIRTUAL_SOURCEMAP = {
 
 // ---------------------------------------------
 
-export default async function composably(config: Config): Promise<Plugin[]> {
-  const composablyPlugin = await plugin(config);
+export async function composablyWithSveltekit(
+  config: Config
+): Promise<Plugin[]> {
+  const composablyPlugin = await composably(config);
   const sveltePlugins = await sveltekit();
   return [composablyPlugin, ...sveltePlugins];
 }
@@ -208,7 +211,7 @@ function getEntries(config: Config, refresh = false): Set<string> {
   return entries ?? new Set();
 }
 
-async function plugin(config: Config): Promise<Plugin> {
+export async function composably(config: Config): Promise<Plugin> {
   return {
     name: 'svelte-composably',
     enforce: 'pre',

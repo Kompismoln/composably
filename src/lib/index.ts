@@ -1,2 +1,2 @@
 export { discoverContentPaths, loadContent } from './content.js';
-export { default as composably } from './vite.js';
+export { composably, composablyWithSveltekit } from './vite.js';
