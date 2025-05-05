@@ -7,8 +7,7 @@ consumable by Svelte components, ensuring type safety along the way.
 
 The content is analyzed before SvelteKit processes components (or do anything really),
 this makes it possible to inject virtual components from content, which is useful
-if you want to be able to for example use components in your markdown
-(without making markdown components).
+if you want to use components in your markdown (without making markdown components).
 
 This effectively makes SvelteKit a Static Site Generator much like Astro, Hugo and Jekyll.
 For those of you who take progressive enhancement seriously: Here's your opportunity
