@@ -4,14 +4,15 @@ import fs from 'node:fs/promises';
 import { globSync } from 'node:fs';
 import path from 'node:path';
 import { parseComponentContent } from './parsers.js';
+import { contentTraverser } from './utils.js';
+import { colocate } from './validators.js';
+
 import type {
   SourceComponentContent,
   Config,
   SourcePageContent,
   Fragment
 } from './types.d.ts';
-import { contentTraverser } from './utils.js';
-import { colocate } from './validators.js';
 
 const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 
@@ -21,10 +22,12 @@ const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
  * components *during* its execution, enabling lazy loading while still capturing
  * necessary side data.
  *
- * @param searchPath The site path (e.g., 'about/team' or '').
+ * @param localPath The site path (e.g., 'about/team' or '').
  * @param config The application configuration object.
  * @param reportVirtualComponent A callback function invoked whenever a virtual
  * component is successfully processed. It receives the processed component content.
+ * @param reportFileDependency A callback function invoked whenever a file is
+ * loaded during the content processing.
  * @returns A Promise resolving to the fully processed page data (type SourcePageContent).
  */
 export const loadContent = async (
@@ -33,11 +36,11 @@ export const loadContent = async (
   reportVirtualComponent: (component: SourceComponentContent) => void,
   reportFileDependency: (filePath: string) => void
 ): Promise<SourcePageContent> => {
-  // Return type is the Promise for the main content
 
+  // Decide which name to map the empty path to.
   localPath ||= config.indexFile || 'index';
 
-  // Start by finding the root content file
+  // Finding the root content file
   const { absPath, content } = await findAndParseContentFile(localPath, config);
 
   let pageData = content as SourcePageContent;
@@ -46,8 +49,7 @@ export const loadContent = async (
   reportFileDependency(absPath);
 
   // Apply transformations using the contentTraverser utility.
-  // The traverser modifies pageData in place or returns a new object for pageData
-  // to be reassigned to.
+  // The traverser constructs a new object from pageData.
 
   // 1. Load and attach fragments recursively
   pageData = (await contentTraverser({
@@ -116,38 +118,31 @@ export const discoverContentPaths = (config: Config): string[] => {
     `**/*.@(${filetypes.join('|')})`
   );
 
-  try {
-    return (
-      globSync(pattern)
-        // Filter out files starting with underscore (fragments)
-        .filter((filePath: string) => path.basename(filePath)[0] !== '_')
-        // Map absolute path to relative site path
-        .map((filePath: string) => {
-          const relativePath = path.relative(config.contentRoot, filePath);
-          const { dir, name } = path.parse(relativePath);
-          const sitePath = path.join(dir, name);
+  return (
+    globSync(pattern)
+    // Filter out files starting with underscore (fragments)
+    .filter((filePath: string) => path.basename(filePath)[0] !== '_')
+    // Map absolute path to relative site path
+    .map((filePath: string) => {
+      const relativePath = path.relative(config.contentRoot, filePath);
+      const { dir, name } = path.parse(relativePath);
+      const sitePath = path.join(dir, name);
 
-          // Handle index file mapping (e.g., 'index' -> '')
-          return sitePath === (config.indexFile || 'index')
-            ? ''
-            : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
-        })
-    );
-  } catch (error) {
-    console.error(
-      `Error discovering content paths in ${config.contentRoot}:`,
-      error
-    );
-    return []; // Return empty array on error
-  }
+      // Handle index file mapping (e.g., 'index' -> '')
+      return sitePath === (config.indexFile || 'index')
+        ? ''
+        : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
+    })
+  );
 };
+
 // --- File Parsing Logic ---
 
 /**
  * Find and parse a content file by trying different extensions.
- * @param searchPath Relative path within contentRoot (without extension).
+ * @param localPath Relative path within contentRoot (without extension).
  * @param config The application configuration object.
- * @returns Parsed content from the first matching file found.
+ * @returns Parsed the path and content from the first matching file found.
  * @throws Error if no matching file is found.
  */
 const findAndParseContentFile = async (
@@ -189,9 +184,6 @@ const findAndParseContentFile = async (
  * underscore.
  * Note: Uses spread syntax to create new objects, aiming for immutability.
  *
- * @template TExpected The expected shape of the returned object after processing fragments.
- * The caller is responsible for providing an accurate type based
- * on the input object and the contents of the referenced fragments.
  * @param obj The object potentially containing fragment references. Should be JSON-serializable.
  * @param config The application configuration object.
  * @param reportFileDependency Callback function to report file dependencies.
@@ -199,11 +191,11 @@ const findAndParseContentFile = async (
  * with fragments loaded and merged/attached.
  */
 const loadAndAttachFragments = async (
-  obj: Record<string, unknown>,
+  obj: Fragment,
   config: Config,
   reportFileDependency: (filePath: string) => void
-): Promise<Record<string, unknown>> => {
-  let currentResult: Record<string, unknown> = { ...obj }; // Start with a shallow copy
+): Promise<Fragment> => {
+  let currentResult: Fragment = { ...obj }; // Start with a shallow copy
 
   // 1. Handle root fragment reference ('_')
   if ('_' in currentResult && typeof currentResult._ === 'string') {
@@ -211,6 +203,7 @@ const loadAndAttachFragments = async (
     const fragmentContent = await parseFileContent(absPath);
     reportFileDependency(absPath);
 
+    // Drop the fragment handle
     delete currentResult._;
 
     // Merge the fragment content. Let properties originally in currentResult
@@ -220,7 +213,6 @@ const loadAndAttachFragments = async (
 
   // 2. Handle named fragment references ('_key') recursively and merge results
   const processedFragments: Fragment = {};
-  const keysToRemove: string[] = [];
 
   // Iterate over a copy of keys, as we might modify currentResult
   const keys = Object.keys(currentResult);
@@ -239,55 +231,14 @@ const loadAndAttachFragments = async (
 
       // Store processed fragment under the new key
       processedFragments[newKey] = fragmentContent;
-      keysToRemove.push(key); // Mark original '_key' for removal
-    }
-  }
 
-  // Remove the original '_key' references
-  for (const keyToRemove of keysToRemove) {
-    delete currentResult[keyToRemove];
+      // Delete the old key
+      delete currentResult[key];
+    }
   }
 
   currentResult = { ...processedFragments, ...currentResult };
-
   return currentResult;
-};
-
-// --- Component Processing ---
-
-/**
- * Processes components marked as 'virtual', typically involving markdown
- * parsing.
- * @param content The component content object.
- * @param config The application configuration object
- * (needed by parseComponentContent if it's refactored).
- * @returns Processed component content, potentially with HTML rendered from
- * markdown.
- */
-const processVirtualComponent = async (
-  content: SourceComponentContent,
-  config: Config
-): Promise<SourceComponentContent> => {
-  // Check if there's markdown content to parse
-  if ('markdown' in content && typeof content.markdown === 'string') {
-    try {
-      // Assuming parseComponentContent now accepts config if needed, or uses
-      // options from content
-      // Pass necessary options if parseComponentContent requires them
-      const parsedContent = await parseComponentContent(content, config);
-      return parsedContent;
-    } catch (error) {
-      console.error(
-        `Error parsing markdown for virtual component '${content.component || JSON.stringify(content).slice(0, 100)}':`,
-        error
-      );
-      // Decide how to handle parsing errors: return original, throw, etc.
-      // Returning original content might be safer for build processes
-      return content;
-    }
-  }
-  // If no markdown, return the content as is
-  return content;
 };
 
 /**
@@ -338,6 +289,43 @@ const toAbsolutePath = (localPath: string, config: Config): string => {
   const absolutePath = path.resolve(config.root, fullPath);
 
   return absolutePath;
+};
+
+// --- Component Processing ---
+
+/**
+ * Processes components marked as 'virtual', typically involving markdown
+ * parsing.
+ * @param content The component content object.
+ * @param config The application configuration object
+ * (needed by parseComponentContent if it's refactored).
+ * @returns Processed component content, potentially with HTML rendered from
+ * markdown.
+ */
+const processVirtualComponent = async (
+  content: SourceComponentContent,
+  config: Config
+): Promise<SourceComponentContent> => {
+  // Check if there's markdown content to parse
+  if ('markdown' in content && typeof content.markdown === 'string') {
+    try {
+      // Assuming parseComponentContent now accepts config if needed, or uses
+      // options from content
+      // Pass necessary options if parseComponentContent requires them
+      const parsedContent = await parseComponentContent(content, config);
+      return parsedContent;
+    } catch (error) {
+      console.error(
+        `Error parsing markdown for virtual component '${content.component || JSON.stringify(content).slice(0, 100)}':`,
+        error
+      );
+      // Decide how to handle parsing errors: return original, throw, etc.
+      // Returning original content might be safer for build processes
+      return content;
+    }
+  }
+  // If no markdown, return the content as is
+  return content;
 };
 
 // --- Exported Functions ---

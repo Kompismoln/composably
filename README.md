@@ -42,17 +42,20 @@ The plugin exposes a pre-built virtual module `composably:content` with all
 content it has discovered under your `contentRoot` (e.g. `src/lib/content`):
 
 ```typescript
-// src/routes/your-ssg/[...path]/+page.ts
+// src/routes/your-ssg-site/[...path]/+page.ts
 import content from 'composably:content';
-const page = await content(path);
 
-// src/routes/your-ssg/[...path]/+page.svelte
+export const load = async ({ params }) => {
+  return await content(params.path);
+};
+
+// src/routes/your-ssg-site/[...path]/+page.svelte
 <page.component {...page} />
 ```
 
 ## **2. Markdown example**
 
-Given this `index.md` directly in `contentRoot`:
+Create this `index.md` directly under `contentRoot`:
 
 ```markdown
 ---
