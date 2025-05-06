@@ -8,10 +8,11 @@ import { contentTraverser, toAbsolutePath } from './utils.js';
 import { colocate } from './validators.js';
 
 import type {
-  SourceComponentContent,
   Config,
+  Fragment,
+  ComponentValidator,
   SourcePageContent,
-  Fragment
+  SourceComponentContent
 } from './types.d.ts';
 
 const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
@@ -20,7 +21,7 @@ class ContentLoader {
   private config: Config;
   private reportVirtualComponent: (component: SourceComponentContent) => void;
   private reportFileDependency: (filePath: string) => void;
-  private validator: typeof colocate;
+  private validator: ComponentValidator;
 
   constructor(
     config: Config,

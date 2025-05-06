@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import { c } from './schemas.js';
-import type { Config, SourceComponentContent } from './types.js';
+import type { ComponentValidator } from './types.js';
 
-export const colocate = async (
-  content: SourceComponentContent,
-  reportFileDependency: (filePath: string) => void,
-  config: Config
-): Promise<SourceComponentContent> => {
+export const colocate: ComponentValidator = async (
+  content,
+  reportFileDependency,
+  config
+) => {
   const componentFilePath = `${config.componentRoot}/${content.component}.svelte`;
 
   const schema = await getSchema(componentFilePath);
