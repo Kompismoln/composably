@@ -30,7 +30,7 @@ export default function parseHeadings() {
 }
 
 export function headerId(node: Heading) {
-  const idRegex = / {#(?<id>[^}]+)}$| \|\|(?<id>[^|]+)\|\|$/;
+  const idRegex = / {#(?<id1>[^}]+)}$| \|\|(?<id2>[^|]+)\|\|$/;
   const textNode = node.children.at(-1);
   if (textNode?.type !== 'text') {
     return;
@@ -46,7 +46,8 @@ export function headerId(node: Heading) {
 
   textNode.value = text.slice(0, matched.index);
 
-  const { id } = matched.groups;
+  const { id1, id2 } = matched.groups;
+  const id = id1 || id2;
 
   node.data ??= {};
   node.data.hProperties ??= {};

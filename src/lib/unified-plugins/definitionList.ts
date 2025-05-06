@@ -1,6 +1,3 @@
-// === Augmentation End ===
-
-// Now, the rest of your plugin code...
 import {
   defListFromMarkdown,
   defListToMarkdown
@@ -12,10 +9,8 @@ export { defListHastHandlers } from 'mdast-util-definition-list';
 export { defListHastToMdast } from 'hast-util-definition-list';
 
 export function remarkDefinitionList(this: Processor): void {
-  // `data` will now be correctly typed thanks to the augmentation above
   const data = this.data();
 
-  // TypeScript now knows about these properties without the hack
   const micromarkExtensions =
     data.micromarkExtensions ?? (data.micromarkExtensions = []);
   const fromMarkdownExtensions =
