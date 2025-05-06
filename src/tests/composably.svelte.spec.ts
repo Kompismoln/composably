@@ -3,6 +3,24 @@ import content from 'composably:content';
 import page from 'composably:content/page';
 import { expect, test } from 'vitest';
 
+test('page-json.json', async () => {
+  const { component, ...props } = await content('page-json');
+  const { getByTestId } = render(component, { props });
+  expect(getByTestId('page-title').innerHTML).toBe('page-json');
+});
+
+test('page-js.js', async () => {
+  const { component, ...props } = await content('page-js');
+  const { getByTestId } = render(component, { props });
+  expect(getByTestId('page-title').innerHTML).toBe('page-js');
+});
+
+test('page-ts.ts', async () => {
+  const { component, ...props } = await content('page-ts');
+  const { getByTestId } = render(component, { props });
+  expect(getByTestId('page-title').innerHTML).toBe('page-ts');
+});
+
 test('direct page import', async () => {
   const { component, ...props } = await page();
   const { getByTestId } = render(component, { props });
@@ -15,10 +33,12 @@ test('free page', async () => {
   expect(getByTestId('list-item-slot-prop').innerHTML).toBe('list-item-slot');
   expect(getByTestId('fragment-slot-prop').innerHTML).toBe('fragment-slot');
 });
+
 test('site 404', async () => {
   const noPagePromise = content('no-page');
   await expect(noPagePromise).rejects.toThrow('Unknown content path: no-page');
 });
+
 test('site index', async () => {
   const { component, ...props } = await content('');
   const { getByTestId, getByLabelText } = render(component, { props });

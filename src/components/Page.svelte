@@ -13,7 +13,6 @@
 
 <h1 data-testid="page-title">{page.title}</h1>
 
-{page.component}
 {#if page.components}
   {#each page.components as section, key (key)}
     <section.component {...section} />
