@@ -9,11 +9,11 @@ The content is analyzed before SvelteKit processes components (or do anything re
 this makes it possible to inject virtual components from content, which is useful
 if you want to use components in your markdown (without making markdown components).
 
-This effectively makes SvelteKit a Static Site Generator much like Astro, Hugo and Jekyll.
+This effectively makes SvelteKit a Static Site Generator much like Astro, Hugo or Jekyll.
 For those of you who take progressive enhancement seriously: Here's your opportunity
-to really start from the bottom.
+to really start from the basecase.
 
-The API is currently a bit unpolished, but the showcase pages and `composably.spec.svelte.ts`
+The API is currently a bit unpolished, but the showcase pages and `src/tests/composably.spec.svelte.ts`
 describe most of the functionality that this plugin provides. Feel free to clone and hack.
 
 ## **1. Setup**
@@ -45,7 +45,7 @@ export default defineConfig({
 ```
 
 The plugin exposes a pre-built virtual module `composably:content` with all
-content it has discovered under your `contentRoot` (e.g. `src/lib/content`):
+content it has discovered under your `contentRoot` (e.g. `src/content`):
 
 ```typescript
 // src/routes/your-ssg-site/[...path]/+page.ts
@@ -56,7 +56,7 @@ export const load = async ({ params }) => {
 };
 
 // src/routes/your-ssg-site/[...path]/+page.svelte
-<page.component {...page} />
+<data.component {...data} />
 ```
 
 ## **2. Markdown example**
@@ -299,11 +299,12 @@ Composably's markdown parser comes with the following features out-of-the-box:
 
 ## Contribution and disclaimer
 
-**⚠️ Early Alpha - Use with Caution! ⚠️**
+This package is currently in the **alpha stage** of development. While functional for its core purpose,
+APIs might change, bugs are likely present, and it has not yet been battle-tested in diverse production
+environments. **Do not rely on this for critical applications just yet.**
 
-This package is currently in the **early alpha stage** of development. While functional for its core purpose, APIs might change, bugs are likely present, and it has not yet been battle-tested in diverse production environments. **Please do not rely on this for critical applications yet.**
-
-Testers and contributors are warmly welcome! Your feedback, bug reports, and code contributions are highly valuable at this stage.
+Testers and contributors are warmly welcome!
+Your feedback, bug reports, and code contributions are highly valuable at this stage.
 
 ### Getting Started with Development
 

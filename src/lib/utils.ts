@@ -1,4 +1,5 @@
-import type { ContentTraverser, Fragment } from './types.d.ts';
+import path from 'node:path';
+import type { Config, ContentTraverser, Fragment } from './types.d.ts';
 
 /* Take an anything and traverse all objects and arrays.
  * Call callback on non-empty objects when filter returns true.
@@ -50,4 +51,14 @@ export const shortHash = (str: string) => {
   for (let i = 0; i < str.length; i++)
     hash = (hash << 5) - hash + str.charCodeAt(i);
   return ('0000' + (hash >>> 0).toString(36)).slice(-4);
+};
+
+export const toAbsolutePath = (localPath: string, config: Config): string => {
+  if (!config.root) {
+    throw new Error('The config.root property has not been set.');
+  }
+  const fullPath = path.join(config.contentRoot, localPath);
+  const absolutePath = path.resolve(config.root, fullPath);
+
+  return absolutePath;
 };
