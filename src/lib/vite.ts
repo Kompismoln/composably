@@ -428,11 +428,11 @@ default: throw new Error(\`${errorMessage}\`);}}`;
             path.basename(filePath)[0] !== '_'
           ) {
             const mod = server.moduleGraph.getModuleById(
-              '\0composably:content'
+              RESOLVED_CONTENT
             );
             if (mod) {
               logHMR(
-                `Invalidating composably:content due to ${eventType} ${filePath}`
+                `Invalidating ${RESOLVED_CONTENT} due to ${eventType} ${filePath}`
               );
               server.moduleGraph.invalidateModule(mod);
               server.ws.send({

@@ -3,6 +3,7 @@ import rehypeDaisyUI from './src/plugins/rehypeClassAdder.js';
 import remarkReplace from './src/plugins/remarkReplace.js';
 
 const config: Config = {
+  root: process.cwd(),
   componentRoot: 'src/components',
   contentRoot: 'src/content',
   indexFile: 'index',
