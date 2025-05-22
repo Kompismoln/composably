@@ -233,6 +233,7 @@ slots:
       - image: /img1.jpg
       - image: /img2.jpg
 ---
+
 Intro text.
 
 ::carousel

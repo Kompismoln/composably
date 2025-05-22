@@ -15,7 +15,7 @@ import type {
   SourceComponentContent
 } from './types.d.ts';
 
-const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
+export const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 
 class ContentLoader {
   private config: Config;
@@ -41,35 +41,40 @@ class ContentLoader {
    */
   private async parseFileContent(absPath: string): Promise<Fragment> {
     const fileExt = path.extname(absPath);
-
-    this.reportFileDependency(absPath);
+    let fragment: Fragment | null = null;
 
     if (['.js', '.ts'].includes(fileExt)) {
       // Using /* @vite-ignore */ is necessary for dynamic imports where the
       // exact path isn't known statically.
       const module = await import(/* @vite-ignore */ absPath);
       if (typeof module.default === 'function') {
-        return module.default(this.reportFileDependency) as Fragment;
+        fragment = module.default(this.reportFileDependency) as Fragment;
+      } else {
+        fragment = module.default as Fragment;
       }
-      return module.default as Fragment;
+    } else {
+      const fileContent = await fs.readFile(absPath, 'utf-8');
+
+      if (fileExt === '.md') {
+        const { data, content: body } = matter(fileContent);
+        fragment = { ...data, body };
+      }
+      if (['.yml', '.yaml'].includes(fileExt)) {
+        fragment = yaml.load(fileContent) as Fragment;
+      }
+      if (fileExt === '.json') {
+        fragment = JSON.parse(fileContent);
+      }
     }
 
-    const fileContent = await fs.readFile(absPath, 'utf-8');
-
-    if (fileExt === '.md') {
-      const { data, content: body } = matter(fileContent);
-      return { ...data, body };
-    }
-    if (['.yml', '.yaml'].includes(fileExt)) {
-      return yaml.load(fileContent) as Fragment;
-    }
-    if (fileExt === '.json') {
-      return JSON.parse(fileContent);
+    if (fragment === null) {
+      throw new Error(
+        `Unsupported file extension: '${fileExt}' for file: ${absPath}`
+      );
     }
 
-    throw new Error(
-      `Unsupported file extension: '${fileExt}' for file: ${absPath}`
-    );
+    this.reportFileDependency(absPath);
+    return fragment;
   }
 
   /**
@@ -276,22 +281,22 @@ export const loadContent = async (
  * @returns An array of site paths corresponding to content files.
  */
 export const discoverContentPaths = (config: Config): string[] => {
-  const pattern = path.join(
-    config.contentRoot,
-    `**/*.@(${filetypes.join('|')})`
-  );
+  const pattern = `**/*.@(${filetypes.join('|')})`;
 
-  return globSync(pattern)
+  const cwd = toAbsolutePath('/', config);
+
+  const result = globSync(pattern, { cwd })
     .filter((filePath: string) => path.basename(filePath)[0] !== '_')
     .map((filePath: string) => {
-      const relativePath = path.relative(config.contentRoot, filePath);
-      const { dir, name } = path.parse(relativePath);
+      const { dir, name } = path.parse(filePath);
       const sitePath = path.join(dir, name);
 
       return sitePath === (config.indexFile || 'index')
         ? ''
         : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
     });
+
+  return result;
 };
 
 // --- Test Export ---

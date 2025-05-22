@@ -1,13 +1,15 @@
 import type { Plugin, ResolvedConfig } from 'vite';
-import { discoverContentPaths, loadContent } from './content.js';
+import { discoverContentPaths, loadContent, filetypes } from './content.js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { default as Debug } from 'debug';
+import path from 'node:path';
 
 import type {
   SourceComponentContent,
   Config,
   SourcePageContent
 } from './types.d.ts';
+import { toAbsolutePath } from './utils.js';
 
 const logBase = Debug('composably');
 const logConfig = Debug('composably:config');
@@ -191,21 +193,16 @@ async function getOrLoadPage(
     promise: pagePromise,
     sourceFiles: currentSourceFiles
   });
+
   entryToVirtualComponents.set(entryPath, generatedVirtualComponents); // Store VC associations
 
-  // Wait for the actual content loading to finish before returning
   const pageContent = await pagePromise;
-
-  // Now that loading is successful, update cache entry with resolved details if needed,
-  // though storing the promise is usually sufficient.
-  // pageCache.set(entryPath, { promise: Promise.resolve(pageContent), sourceFiles: currentSourceFiles }); // Update with resolved promise
 
   return pageContent;
 }
 
 function getEntries(config: Config, refresh = false): Set<string> {
   if (refresh || !entries) {
-    // Make sure discoverContentPaths returns unique paths
     entries = new Set(discoverContentPaths(config));
   }
   return entries ?? new Set();
@@ -253,7 +250,7 @@ export async function composably(config: Config): Promise<Plugin> {
       // --- Load VIRTUAL_CONTENT list ---
       if (id === RESOLVED_CONTENT) {
         logLoad('Loading:', RESOLVED_CONTENT);
-        const currentEntries = Array.from(getEntries(config)); // Get latest entries
+        const currentEntries = Array.from(getEntries(config, true));
 
         // Generate case statements for each entry
         const cases = currentEntries
@@ -263,12 +260,14 @@ export async function composably(config: Config): Promise<Plugin> {
           )
           .join('\n');
 
+        const errorMessage = `Not in: [${currentEntries.join(',')}]`;
+
         // Generate the code for the virtual module, exporting a single async function
         const code = `
 export default async function loadPageContent(path) {
 switch (path) {
 ${cases}
-default: throw new Error(\`Unknown content path: \${path}\`);}}`;
+default: throw new Error(\`${errorMessage}\`);}}`;
         return code;
       }
 
@@ -395,31 +394,6 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
         logHMR(
           `File ${absolutePath} does not directly affect known content entries.`
         );
-        // Add logic here to check if the change affects the *list* of entries itself
-        // e.g., by comparing getEntries(config, true) with the cached 'entries' Set.
-        // If the list changes, invalidate RESOLVED_CONTENT.
-        const oldEntries: Set<string> = entries
-          ? new Set(entries)
-          : new Set<string>();
-        const newEntries = getEntries(config, true); // Force refresh discovery
-
-        if (setsDiffer(oldEntries, newEntries)) {
-          logHMR('Entry list changed. Invalidating content list module.');
-          entries = newEntries; // Update cache
-          const listModule = server.moduleGraph.getModuleById(RESOLVED_CONTENT);
-          if (listModule) {
-            server.moduleGraph.invalidateModule(listModule);
-            modulesToReload.add(listModule);
-          }
-          // Handle added/removed entries in caches (e.g., remove cache entries for deleted files)
-          oldEntries.forEach((oldEntry) => {
-            if (!newEntries.has(oldEntry)) {
-              // Invalidate caches associated with the removed entry 'oldEntry'
-              invalidateCacheForFile(oldEntry); // Or a more direct cache removal
-              logHMR(`Removing caches related to deleted entry: ${oldEntry}`);
-            }
-          });
-        }
       }
 
       if (modulesToReload.size > 0) {
@@ -435,20 +409,52 @@ default: throw new Error(\`Unknown content path: \${path}\`);}}`;
     },
 
     // Optional: configureServer hook to perform initial scan
-    configureServer() {
+    configureServer(server) {
       logBase(
         'Composably Plugin: configureServer - Performing initial content scan...'
       );
       getEntries(config, true);
+      const contentPathPrefix = toAbsolutePath(path.sep, config);
+
+      const handleFileEvent = async (
+        filePath: string,
+        eventType: 'add' | 'unlink' | 'change'
+      ) => {
+        // Filter for files within the content directory and with correct extensions
+        if (filePath.startsWith(contentPathPrefix)) {
+          const fileExtension = path.extname(filePath).substring(1);
+          if (
+            filetypes.includes(fileExtension) &&
+            path.basename(filePath)[0] !== '_'
+          ) {
+            const mod = server.moduleGraph.getModuleById(
+              '\0composably:content'
+            );
+            if (mod) {
+              logHMR(
+                `Invalidating composably:content due to ${eventType} ${filePath}`
+              );
+              server.moduleGraph.invalidateModule(mod);
+              server.ws.send({
+                type: 'update',
+                updates: [
+                  {
+                    type: 'js-update',
+                    path: mod.url,
+                    acceptedPath: mod.url,
+                    timestamp: Date.now()
+                  }
+                ]
+              });
+            }
+          }
+        }
+      };
+
+      server.watcher.on('add', (filePath) => handleFileEvent(filePath, 'add'));
+      server.watcher.on('unlink', (filePath) =>
+        handleFileEvent(filePath, 'unlink')
+      );
     }
   };
-}
-
-// Helper to compare sets
-function setsDiffer<T>(setA: Set<T>, setB: Set<T>): boolean {
-  if (setA.size !== setB.size) return true;
-  for (const item of setA) {
-    if (!setB.has(item)) return true;
-  }
-  return false;
 }

@@ -36,7 +36,7 @@ test('free page', async () => {
 
 test('site 404', async () => {
   const noPagePromise = content('no-page');
-  await expect(noPagePromise).rejects.toThrow('Unknown content path: no-page');
+  await expect(noPagePromise).rejects.toThrow(/Not in/);
 });
 
 test('site index', async () => {
