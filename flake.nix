@@ -40,6 +40,9 @@
         default = pkgs.mkShell {
           name = "${name}-dev";
           packages = with pkgs; [
+            # Dev shell for library maintainers only — not included in published package.
+            (writeScriptBin "npm" ''pnpm "$@"'')
+            (writeScriptBin "npx" ''echo "use pnpm dlx"'')
             pnpm
             node2nix
             nodejs_23

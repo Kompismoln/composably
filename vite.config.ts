@@ -12,6 +12,9 @@ export default defineConfig({
   },
   plugins: [sveltekit(), composably(composablyConfig)],
   test: {
+    coverage: {
+      include: ['src/lib/**/*.{ts,js}']
+    },
     workspace: [
       {
         extends: './vite.config.ts',

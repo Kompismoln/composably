@@ -427,9 +427,7 @@ default: throw new Error(\`${errorMessage}\`);}}`;
             filetypes.includes(fileExtension) &&
             path.basename(filePath)[0] !== '_'
           ) {
-            const mod = server.moduleGraph.getModuleById(
-              RESOLVED_CONTENT
-            );
+            const mod = server.moduleGraph.getModuleById(RESOLVED_CONTENT);
             if (mod) {
               logHMR(
                 `Invalidating ${RESOLVED_CONTENT} due to ${eventType} ${filePath}`
