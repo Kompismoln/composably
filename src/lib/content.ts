@@ -6,6 +6,12 @@ import path from 'node:path';
 import { parseComponentContent } from './parsers.js';
 import { contentTraverser, toAbsolutePath } from './utils.js';
 import { colocate } from './validators.js';
+import {
+  PageNotFoundError,
+  FileNotFoundError,
+  UnsupportedFileExtensionError,
+  UnlikelyCodePathError
+} from './errors.js';
 
 import type {
   Config,
@@ -43,17 +49,45 @@ class ContentLoader {
     const fileExt = path.extname(absPath);
     let fragment: Fragment | null = null;
 
+    if (!filetypes.includes(fileExt.slice(1))) {
+      throw new UnsupportedFileExtensionError(fileExt);
+    }
+
     if (['.js', '.ts'].includes(fileExt)) {
-      // Using /* @vite-ignore */ is necessary for dynamic imports where the
-      // exact path isn't known statically.
-      const module = await import(/* @vite-ignore */ absPath);
+      let module;
+      try {
+        module = await import(/* @vite-ignore */ absPath);
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'ERR_MODULE_NOT_FOUND'
+        ) {
+          throw new FileNotFoundError(absPath);
+        }
+        throw error;
+      }
       if (typeof module.default === 'function') {
         fragment = module.default(this.reportFileDependency) as Fragment;
       } else {
         fragment = module.default as Fragment;
       }
     } else {
-      const fileContent = await fs.readFile(absPath, 'utf-8');
+      let fileContent;
+      try {
+        fileContent = await fs.readFile(absPath, 'utf-8');
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          throw new FileNotFoundError(absPath);
+        }
+        throw error;
+      }
 
       if (fileExt === '.md') {
         const { data, content: body } = matter(fileContent);
@@ -68,9 +102,7 @@ class ContentLoader {
     }
 
     if (fragment === null) {
-      throw new Error(
-        `Unsupported file extension: '${fileExt}' for file: ${absPath}`
-      );
+      throw new UnlikelyCodePathError(this);
     }
 
     this.reportFileDependency(absPath);
@@ -82,35 +114,24 @@ class ContentLoader {
    * Uses the instance's parseFileContent method.
    * @param localPath Relative path within contentRoot (without extension).
    * @returns Parsed the path and content from the first matching file found.
-   * @throws Error if no matching file is found.
+   * @throws PageNotFoundError if no matching file is found.
    */
   private async findAndParseContentFile(localPath: string): Promise<Fragment> {
-    localPath ||= this.config.indexFile || 'index'; // Default index logic here
+    localPath ||= this.config.indexFile || 'index';
 
     for (const ext of filetypes) {
       const absPath = `${toAbsolutePath(localPath, this.config)}.${ext}`;
       try {
-        // Call the instance's parsing method. It handles the existence check
-        // (by attempting to read/import) and reporting the dependency.
         const content = await this.parseFileContent(absPath);
         return content;
       } catch (error) {
-        if (error && typeof error === 'object' && 'code' in error) {
-          const errorCode = String((error as { code: unknown }).code);
-          // Rely on ENOENT/ERR_MODULE_NOT_FOUND from parseFileContent
-          if (['ENOENT', 'ERR_MODULE_NOT_FOUND'].includes(errorCode)) {
-            continue; // File not found with this extension, try next
-          }
+        if (error instanceof FileNotFoundError) {
+          continue;
         }
-        // Re-throw other errors (permissions, syntax errors, etc.)
-        console.error(`Error processing file ${absPath}:`, error);
         throw error;
       }
     }
-    // If loop completes without finding a file
-    throw new Error(
-      `Content file not found for path: '${localPath}' (checked extensions: ${filetypes.join(', ')}) in ${this.config.contentRoot}`
-    );
+    throw new PageNotFoundError(localPath);
   }
 
   /**
@@ -120,21 +141,18 @@ class ContentLoader {
    * @returns A Promise resolving to a new object with fragments loaded.
    */
   private async loadAndAttachFragments(obj: Fragment): Promise<Fragment> {
-    let currentResult: Fragment = { ...obj }; // Start with a shallow copy
+    let currentResult: Fragment = { ...obj };
 
-    // 1. Handle root fragment reference ('_')
     if ('_' in currentResult && typeof currentResult._ === 'string') {
       const absPath = toAbsolutePath(currentResult._, this.config);
-      // Use the instance's parser, it handles dependency reporting
       const fragmentContent = await this.parseFileContent(absPath);
 
       delete currentResult._;
       currentResult = { ...fragmentContent, ...currentResult };
     }
 
-    // 2. Handle named fragment references ('_key') recursively and merge results
     const processedFragments: Fragment = {};
-    const keys = Object.keys(currentResult); // Iterate over a copy of keys
+    const keys = Object.keys(currentResult);
 
     for (const key of keys) {
       if (
@@ -145,7 +163,6 @@ class ContentLoader {
         const newKey = key.slice(1); // Remove the leading underscore
 
         const absPath = toAbsolutePath(currentResult[key], this.config);
-        // Use the instance's parser, it handles dependency reporting
         const fragmentContent = await this.parseFileContent(absPath);
 
         processedFragments[newKey] = fragmentContent;
@@ -166,20 +183,10 @@ class ContentLoader {
   private async processVirtualComponent(
     content: SourceComponentContent
   ): Promise<SourceComponentContent> {
-    // Check if there's markdown content to parse
     if ('markdown' in content && typeof content.markdown === 'string') {
-      try {
-        const parsedContent = await parseComponentContent(content, this.config);
-        this.reportVirtualComponent(parsedContent);
-        return parsedContent;
-      } catch (error) {
-        const descr = JSON.stringify(content).slice(0, 100);
-        console.error(
-          `Error parsing markdown for virtual component '${descr}':`,
-          error
-        );
-        throw error;
-      }
+      const parsedContent = await parseComponentContent(content, this.config);
+      this.reportVirtualComponent(parsedContent);
+      return parsedContent;
     }
     return content;
   }
@@ -218,7 +225,6 @@ class ContentLoader {
         typeof obj === 'object' &&
         obj !== null &&
         Object.keys(obj).some((key) => key.startsWith('_')),
-      // Pass the instance method as the callback
       callback: (obj) => this.loadAndAttachFragments(obj)
     })) as SourcePageContent;
 
@@ -228,7 +234,6 @@ class ContentLoader {
       filter: (obj) =>
         typeof obj?.component === 'string' &&
         !obj.component.startsWith('composably:'),
-      // Pass the instance method as the callback
       callback: (obj) =>
         this.processComponentValidation(obj as SourceComponentContent)
     })) as SourcePageContent;
@@ -239,7 +244,6 @@ class ContentLoader {
       filter: (obj) =>
         typeof obj?.component === 'string' &&
         obj.component.startsWith('composably:'),
-      // Pass the instance method as the callback
       callback: async (obj) => {
         const processedComp = await this.processVirtualComponent(
           obj as SourceComponentContent
@@ -248,7 +252,6 @@ class ContentLoader {
       }
     })) as SourcePageContent;
 
-    // After all traversals, the final pageData is ready.
     return pageData;
   }
 }
@@ -292,7 +295,7 @@ export const discoverContentPaths = (config: Config): string[] => {
 
       return sitePath === (config.indexFile || 'index')
         ? ''
-        : sitePath.replace(/\\/g, '/'); // Normalize to forward slashes
+        : sitePath.replace(/\\/g, '/');
     });
 
   return result;

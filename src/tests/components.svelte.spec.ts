@@ -2,6 +2,7 @@ import { render } from '@testing-library/svelte';
 import content from 'composably:content';
 import page from 'composably:content/page';
 import { expect, test } from 'vitest';
+import { ErrorCode } from '../lib/errors.js';
 
 test('page-json.json', async () => {
   const { component, ...props } = await content('page-json');
@@ -36,7 +37,9 @@ test('free page', async () => {
 
 test('site 404', async () => {
   const noPagePromise = content('no-page');
-  await expect(noPagePromise).rejects.toThrow(/Not in/);
+  await expect(noPagePromise).rejects.toThrow(
+    expect.objectContaining({ code: ErrorCode.CONTENT_ENTRY_NOT_FOUND })
+  );
 });
 
 test('site index', async () => {
