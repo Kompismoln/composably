@@ -1,8 +1,6 @@
 # Composably ✨
 
-> Static site generation with typed content + dynamic Svelte components at build time.
-
-Composably is a content processing plugin for Vite and SvelteKit.
+Composably is a content processing plugin for Vite and Svelte.
 It extends the build process by discovering, validating, and transforming content
 from Markdown, YAML, JSON, or dynamic modules. The processed content is made available
 in your application as a virtual module. This is useful for SSG flows similar to
