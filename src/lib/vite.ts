@@ -3,6 +3,10 @@ import { discoverContentPaths, loadContent, filetypes } from './content.js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { default as Debug } from 'debug';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import type {
   SourceComponentContent,
@@ -258,14 +262,14 @@ export async function composably(config: Config): Promise<Plugin> {
           )
           .join('\n');
 
-        const errorMessage = `Not in: [${currentEntries.join(',')}]`;
-
+        const entries = `[${currentEntries.map((e) => `'${e}'`).join(',')}]`;
         // Generate the code for the virtual module, exporting a single async function
         const code = `
-export default async function loadPageContent(path) {
-switch (path) {
+import { ContentEntryNotFoundError } from '${__dirname}/errors.ts';
+export default async function loadPageContent(path) { switch (path) {
 ${cases}
-default: throw new Error(\`${errorMessage}\`);}}`;
+default: throw new ContentEntryNotFoundError(path, ${entries});
+}}`;
         return code;
       }
 
@@ -273,27 +277,37 @@ default: throw new Error(\`${errorMessage}\`);}}`;
       // Match resolved ID: \0composably:content/about
       if (id.startsWith(RESOLVED_PAGE)) {
         const entryPath = id.slice(RESOLVED_PAGE.length);
-        logLoad('Loading:', id, `(Entry: ${entryPath || '/'})`);
-        try {
-          // Use the granular getter/loader
-          const page = await getOrLoadPage(entryPath, config);
 
-          // Stringify and replace components
-          // Consider caching the result of this expensive operation too,
-          // invalidated when the page content or component code changes.
-          let code = `export default async () => (${JSON.stringify(page)});`;
-          code = code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
-            const isVirtual = compPath.startsWith(VIRTUAL_COMPONENT);
-            const importPath = isVirtual
-              ? `${compPath}.svelte` // Append suffix for virtual Svelte components
-              : `/${config.componentRoot}/${compPath}.svelte`; // Path to real component
-            return `"component":(await import('${importPath}')).default`;
-          });
-          return code;
+        logLoad('Loading:', id, `(Entry: ${entryPath || '/'})`);
+
+        let page: SourcePageContent;
+        try {
+          page = await getOrLoadPage(entryPath, config);
         } catch (error) {
-          console.error(`Error processing load for ${id}:`, error);
-          return `export default async () => { throw new Error("Failed to load content for ${entryPath || '/'}"); };`;
+          if (process.env.NODE_ENV === 'test') throw error;
+
+          const message =
+            error instanceof Error ? error.message : String(error);
+
+          this.error({
+            message,
+            cause: error,
+            pluginCode: 'page-load-failure'
+          });
         }
+
+        // Stringify and replace components
+        // Consider caching the result of this expensive operation too,
+        // invalidated when the page content or component code changes.
+        let code = `export default async () => (${JSON.stringify(page)});`;
+        code = code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
+          const isVirtual = compPath.startsWith(VIRTUAL_COMPONENT);
+          const importPath = isVirtual
+            ? `${compPath}.svelte` // Append suffix for virtual Svelte components
+            : `/${config.componentRoot}/${compPath}.svelte`; // Path to real component
+          return `"component":(await import('${importPath}')).default`;
+        });
+        return code;
       }
 
       // --- Load virtual component code ---

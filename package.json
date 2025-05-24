@@ -47,6 +47,10 @@
       "types": "./dist/schemas.d.ts",
       "import": "./dist/schemas.js"
     },
+    "./errors": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/errors.js"
+    },
     "./types": {
       "types": "./dist/types.d.ts"
     }
