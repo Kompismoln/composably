@@ -1,5 +1,5 @@
 {
-  description = "SvelteKit SSG";
+  description = "Composably - Vite plugin for data-driven SSG";
 
   inputs = {
     nixpkgs.url = "github:kompismoln/nixpkgs/nixos-unstable";
@@ -12,7 +12,7 @@
     }:
     let
       name = "composably";
-      version = "0.0.1";
+      version = "0.0.13";
       src = ./.;
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};

@@ -244,7 +244,6 @@ class ContentLoader {
         const processedComp = await this.processVirtualComponent(
           obj as SourceComponentContent
         );
-        // reportVirtualComponent is called inside processVirtualComponent now
         return processedComp;
       }
     })) as SourcePageContent;

@@ -17,24 +17,22 @@ const logCache = Debug('composably:cache');
 const logLoad = Debug('composably:load');
 const logHMR = Debug('composably:hmr');
 
-// --- Constants for virtual module IDs ---
-
-// User-facing prefix (used in import statements)
 const PLUGIN_PREFIX = 'composably:';
 
 // Specific virtual module IDs (user-facing)
-// e.g., import contentList from 'composably:content';
+// Usage: import content from 'composably:content';
 const VIRTUAL_CONTENT = `${PLUGIN_PREFIX}content`;
-// e.g., import page from 'composably:content/about';
+
+// Usage: import about from 'composably:content/about';
 const VIRTUAL_PAGE = `${PLUGIN_PREFIX}content/`;
-// e.g., import Comp from 'composably:component/[short-hash].svelte';
+
+// Usage: import Comp from 'composably:component/[short-hash].svelte';
 const VIRTUAL_COMPONENT = `${PLUGIN_PREFIX}component/`;
 
 // Resolved IDs (internal, prefixed with null byte)
 const RESOLVED_CONTENT = `\0${VIRTUAL_CONTENT}`;
 const RESOLVED_PAGE = `\0${VIRTUAL_PAGE}`;
 
-// Suffix for virtual component imports (ensure it's consistent)
 const COMPONENT_SUFFIX = '.svelte';
 
 // Empty source map for virtual components
