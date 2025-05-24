@@ -1,6 +1,11 @@
 import { default as Debug } from 'debug';
 const logCache = Debug('composably:cache');
 import { discoverContentPaths, loadContent } from './content.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import type {
   SourceComponentContent,
@@ -158,4 +163,25 @@ export function getEntries(config: Config, refresh = false): Set<string> {
     entries = new Set(discoverContentPaths(config));
   }
   return entries ?? new Set();
+}
+
+export function virtualContentSource(entries: Set<string>) {
+  const entryList = Array.from(entries);
+
+  const cases = entryList
+    .map(
+      (p) =>
+        `case '${p}': return (await import('composably:content/${p}')).default();`
+    )
+    .join('\n');
+
+  const entryNames = `[${entryList.map((e) => `'${e}'`).join(',')}]`;
+
+  return [
+    `import { ContentEntryNotFoundError } from '${__dirname}/errors.ts';`,
+    `export default async function loadPageContent(path) { switch (path) {`,
+    `${cases}`,
+    `default: throw new ContentEntryNotFoundError(path, ${entryNames});`,
+    `}}`
+  ].join('\n');
 }

@@ -2,13 +2,13 @@ import { expect, test, vi, describe, beforeEach } from 'vitest';
 import path from 'node:path';
 
 import config from '../../composably.config.js';
-import { contentTraverser } from '$lib/utils.js';
+import { contentTraverser } from '../lib/utils.js';
 import {
   UnsupportedFileExtensionError,
   FileNotFoundError,
   PageNotFoundError
-} from '$lib/errors.js';
-import type { Fragment } from '$lib/types.js';
+} from '../lib/errors.js';
+import type { Fragment } from '../lib/types.js';
 
 import { __test__ } from '../lib/content.js';
 const { ContentLoader } = __test__;

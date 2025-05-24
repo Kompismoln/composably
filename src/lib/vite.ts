@@ -2,21 +2,19 @@ import type { Plugin, ResolvedConfig } from 'vite';
 import { filetypes } from './content.js';
 import { default as Debug } from 'debug';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+
 import {
   getEntries,
   getOrLoadPage,
   virtualComponentCache,
   fileToContentEntries,
-  invalidateCacheForFile
+  invalidateCacheForFile,
+  virtualContentSource
 } from './cache.js';
 
 import type { Config, SourcePageContent } from './types.d.ts';
 
 import { toAbsolutePath } from './utils.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const logBase = Debug('composably');
 const logConfig = Debug('composably:config');
@@ -57,7 +55,6 @@ export async function composably(config: Config): Promise<Plugin> {
     name: 'svelte-composably',
     enforce: 'pre',
 
-    // --- Inject user project root in config ---
     configResolved(viteResolvedConfig: ResolvedConfig) {
       config.root = viteResolvedConfig.root;
       logConfig(`Composably Plugin: Project root resolved to ${config.root}`);
@@ -66,77 +63,41 @@ export async function composably(config: Config): Promise<Plugin> {
 
     resolveId(source: string): string | undefined {
       if (source === VIRTUAL_CONTENT) {
-        return RESOLVED_CONTENT;
+        return `\0${VIRTUAL_CONTENT}`;
       }
       if (source.startsWith(VIRTUAL_PAGE)) {
-        // Ensure valid entry path before resolving
         const entry = source.slice(VIRTUAL_PAGE.length);
         if (getEntries(config).has(entry)) {
-          // Check against current known entries
-          return `\0${source}`; // Use original source with null byte
+          return `\0${source}`;
         }
         console.warn(
           `Attempted to resolve non-existent content entry: ${entry}`
         );
-        return undefined; // Don't resolve if entry doesn't exist
+        return undefined;
       }
       if (source.startsWith(VIRTUAL_COMPONENT)) {
-        // No null byte needed as it should be treated like a normal svelte
-        // file path for Vite/Svelte plugin.
-        // Check if it exists in the cache (optional, load will handle it)
-        // if (virtualComponentCache.has(source)) { ... }
-        return source; // Assuming Vite/Svelte handles .svelte resolution
+        // Null byte prefix on virtual components prevents the svelte-plugin
+        // from picking them up, so they are not added here.
+        return source;
       }
-      return undefined; // Explicitly return undefined for other cases
+      return undefined;
     },
 
     async load(id) {
-      // --- Load VIRTUAL_CONTENT list ---
-      if (id === RESOLVED_CONTENT) {
-        logLoad('Loading:', RESOLVED_CONTENT);
-        const currentEntries = Array.from(getEntries(config, true));
-
-        // Generate case statements for each entry
-        const cases = currentEntries
-          .map(
-            (p) =>
-              `case '${p}': return (await import('${VIRTUAL_PAGE}${p}')).default();`
-          )
-          .join('\n');
-
-        const entries = `[${currentEntries.map((e) => `'${e}'`).join(',')}]`;
-        // Generate the code for the virtual module, exporting a single async function
-        const code = `
-import { ContentEntryNotFoundError } from '${__dirname}/errors.ts';
-export default async function loadPageContent(path) { switch (path) {
-${cases}
-default: throw new ContentEntryNotFoundError(path, ${entries});
-}}`;
-        return code;
+      if (id === `\0${VIRTUAL_CONTENT}`) {
+        logLoad('Loading:', `\0${VIRTUAL_CONTENT}`);
+        const entries = getEntries(config, true);
+        return virtualContentSource(entries);
       }
 
       // --- Load specific page content ---
       // Match resolved ID: \0composably:content/about
-      if (id.startsWith(RESOLVED_PAGE)) {
-        const entryPath = id.slice(RESOLVED_PAGE.length);
+      if (id.startsWith(`\0${VIRTUAL_PAGE}`)) {
+        const entryPath = id.slice(`\0${VIRTUAL_PAGE}`.length);
 
         logLoad('Loading:', id, `(Entry: ${entryPath || '/'})`);
 
-        let page: SourcePageContent;
-        try {
-          page = await getOrLoadPage(entryPath, config);
-        } catch (error) {
-          if (process.env.NODE_ENV === 'test') throw error;
-
-          const message =
-            error instanceof Error ? error.message : String(error);
-
-          this.error({
-            message,
-            cause: error,
-            pluginCode: 'page-load-failure'
-          });
-        }
+        const page: SourcePageContent = await getOrLoadPage(entryPath, config);
 
         // Stringify and replace components
         // Consider caching the result of this expensive operation too,
