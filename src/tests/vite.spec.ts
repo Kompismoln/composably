@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeEach, afterEach } from 'vitest';
 import { createServer, type ViteDevServer } from 'vite';
-import { composably } from '$lib/vite.js';
-import type { Config } from '$lib/types.d.ts';
+import { composably } from '../lib/vite.js';
+import type { Config } from '../lib/types.d.ts';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

@@ -12,7 +12,6 @@ Thumbs.db
 
 # Env
 .direnv
-.envrc
 .env
 .env.*
 !.env.example

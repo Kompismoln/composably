@@ -1,6 +1,6 @@
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vite';
-import { sveltekit } from '@sveltejs/kit/vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { composably } from './src/lib/vite.js';
 import composablyConfig from './composably.config.js';
 
@@ -10,7 +10,7 @@ export default defineConfig({
       ignored: ['**/.direnv/**']
     }
   },
-  plugins: [sveltekit(), composably(composablyConfig)],
+  plugins: [svelte(), composably(composablyConfig)],
   test: {
     coverage: {
       include: ['src/lib/**/*.{ts,js}']
