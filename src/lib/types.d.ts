@@ -10,18 +10,21 @@ export type ComponentValidator = (
 ) => Promise<SourceComponentContent>;
 
 export interface Config {
-  root?: string;
+  root: string;
   componentRoot: string; // Root directory for Svelte components
   contentRoot: string; // Root directory for content files
-  indexFile?: string; // Basename (without extension) of the file representing the root '/' path
-
+  indexFile: string; // Basename (without extension) of the file representing the root '/' path
+  componentPrefix: string;
+  contentPrefix: string;
   // Parsing/Plugin Options (conflated for now)
-  remarkPlugins?: Plugin<unknown, MdastRoot>[];
-  rehypePlugins?: Plugin<unknown, HastRoot>[];
-  validator?: ComponentValidator;
-  markdownField?: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
-  outputField?: string; // Key where parsed HTML output should be stored (Default: 'html')
+  remarkPlugins: Plugin<unknown, MdastRoot>[];
+  rehypePlugins: Plugin<unknown, HastRoot>[];
+  validator: ComponentValidator;
+  markdownField: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
+  outputField: string; // Key where parsed HTML output should be stored (Default: 'html')
 }
+
+export type PartialConfig = Partial<Config>;
 
 /**
  * Represents the raw, parsed data from a fragment file.

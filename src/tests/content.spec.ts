@@ -1,7 +1,8 @@
 import { expect, test, vi, describe, beforeEach } from 'vitest';
 import path from 'node:path';
 
-import config from '../../composably.config.js';
+import composablyConfig from '../../composably.config.js';
+import { resolveConfig } from '../lib/config.js';
 import { contentTraverser } from '../lib/utils.js';
 import {
   UnsupportedFileExtensionError,
@@ -13,7 +14,7 @@ import type { Fragment } from '../lib/types.js';
 import { __test__ } from '../lib/content.js';
 const { ContentLoader } = __test__;
 
-config.root = process.cwd();
+const config = resolveConfig(composablyConfig);
 
 function getExpectedReportedPath(fragmentPath: string): string {
   if (!config.root) {

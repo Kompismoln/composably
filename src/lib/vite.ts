@@ -1,10 +1,11 @@
 import type { ViteDevServer, Plugin, ResolvedConfig } from 'vite';
-import type { Config } from './types.d.ts';
+import type { PartialConfig, Config } from './types.d.ts';
 
 import { default as Debug } from 'debug';
 import path from 'node:path';
 import { filetypes } from './content.js';
 import { toAbsolutePath } from './utils.js';
+import { resolveConfig } from './config.js';
 
 import {
   getEntries,
@@ -19,10 +20,11 @@ const logConfig = Debug('composably:config');
 const logLoad = Debug('composably:load');
 const logHMR = Debug('composably:hmr');
 
-const VIRTUAL_CONTENT = `composably:content`;
-const VIRTUAL_COMPONENT = `composably:component`;
+export async function composably(
+  partialConfig: PartialConfig
+): Promise<Plugin> {
+  const config = resolveConfig(partialConfig);
 
-export async function composably(config: Config): Promise<Plugin> {
   return {
     name: 'svelte-composably',
     enforce: 'pre',
@@ -32,41 +34,37 @@ export async function composably(config: Config): Promise<Plugin> {
       logConfig(`Composably Plugin: Project root resolved to ${config.root}`);
     },
 
-    resolveId(source: string): string | undefined {
-      if (source === VIRTUAL_CONTENT) {
-        return `\0${VIRTUAL_CONTENT}`;
+    resolveId(source: string) {
+      if (source === config.contentPrefix) {
+        return `\0${config.contentPrefix}`;
       }
-      if (source.startsWith(`${VIRTUAL_CONTENT}/`)) {
-        const entry = source.slice(VIRTUAL_CONTENT.length + 1);
+      if (source.startsWith(`${config.contentPrefix}/`)) {
+        const entry = source.slice(config.contentPrefix.length + 1);
         if (getEntries(config).has(entry)) {
           return `\0${source}`;
         }
-        console.warn(
-          `Attempted to resolve non-existent content entry: ${entry}`
-        );
-        return undefined;
       }
-      if (source.startsWith(VIRTUAL_COMPONENT)) {
-        // Null byte prefix on virtual components prevents the svelte-plugin
-        // from picking them up, so they are not added here.
+      if (source.startsWith(config.componentPrefix)) {
+        // Standard practice is to add a null byte prefix here,
+        // but a null byte prefix on virtual components prevents the svelte-plugin
+        // from picking them up, so we don't. It's probably ok.
         return source;
       }
-      return undefined;
     },
 
     async load(id) {
-      if (id === `\0${VIRTUAL_CONTENT}`) {
-        logLoad('Loading content list:', `\0${VIRTUAL_CONTENT}`);
+      if (id === `\0${config.contentPrefix}`) {
+        logLoad('Loading content list:', `\0${config.contentPrefix}`);
         return virtualContentSource(config);
       }
 
-      if (id.startsWith(`\0${VIRTUAL_CONTENT}/`)) {
-        const entryPath = id.slice(`\0${VIRTUAL_CONTENT}/`.length);
+      if (id.startsWith(`\0${config.contentPrefix}/`)) {
+        const entryPath = id.slice(`\0${config.contentPrefix}/`.length);
         logLoad('Loading page:', id, `(Entry: ${entryPath || '/'})`);
         return virtualPageSource(entryPath, config);
       }
 
-      if (id.startsWith(VIRTUAL_COMPONENT)) {
+      if (id.startsWith(config.componentPrefix)) {
         logLoad('Loading Virtual Component:', id, `(Name: ${id})`);
         return virtualComponentSource(id);
       }
@@ -76,7 +74,7 @@ export async function composably(config: Config): Promise<Plugin> {
 
     async handleHotUpdate({ file, server }) {
       logHMR(`HMR triggered by: ${file}`);
-      return getModulesToReload(file, server);
+      return getModulesToReload(file, server, config);
     },
 
     configureServer(server) {
@@ -109,10 +107,10 @@ async function handleFileEvent(
       filetypes.includes(fileExtension) &&
       path.basename(filePath)[0] !== '_'
     ) {
-      const mod = server.moduleGraph.getModuleById(`\0${VIRTUAL_CONTENT}`);
+      const mod = server.moduleGraph.getModuleById(`\0${config.contentPrefix}`);
       if (mod) {
         logHMR(
-          `Invalidating \0${VIRTUAL_CONTENT} due to ${eventType} ${filePath}`
+          `Invalidating \0${config.contentPrefix} due to ${eventType} ${filePath}`
         );
         server.moduleGraph.invalidateModule(mod);
         server.ws.send({
@@ -131,7 +129,11 @@ async function handleFileEvent(
   }
 }
 
-function getModulesToReload(file: string, server: ViteDevServer) {
+function getModulesToReload(
+  file: string,
+  server: ViteDevServer,
+  config: Config
+) {
   logHMR(`HMR: File changed: ${file}. Querying cache for affected items.`);
 
   const { affectedEntryPaths, affectedVirtualComponentIds } =
@@ -156,7 +158,7 @@ function getModulesToReload(file: string, server: ViteDevServer) {
   );
 
   for (const entryPath of affectedEntryPaths) {
-    const pageModuleId = `\0${VIRTUAL_CONTENT}/${entryPath}`;
+    const pageModuleId = `\0${config.contentPrefix}/${entryPath}`;
     const pageMod = server.moduleGraph.getModuleById(pageModuleId);
     if (pageMod) {
       logHMR(`HMR: Invalidating page module in graph: ${pageModuleId}`);

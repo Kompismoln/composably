@@ -33,6 +33,7 @@ export const virtualComponentCache = new Map<
 
 const fileToContentEntries = new Map<string, Set<string>>();
 const entryToVirtualComponents = new Map<string, Set<string>>();
+
 let entries: Set<string> | null = null;
 
 export async function virtualPageSource(
@@ -89,7 +90,7 @@ export async function virtualPageSource(
         const code = `export default async () => (${JSON.stringify(pageContent)});`;
 
         return code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
-          const importPath = compPath.startsWith('composably:component/')
+          const importPath = compPath.startsWith(config.componentPrefix)
             ? compPath
             : `/${config.componentRoot}/${compPath}.svelte`;
           return `"component":(await import('${importPath}')).default`;
@@ -148,7 +149,7 @@ export function virtualContentSource(config: Config) {
   const cases = entryList
     .map(
       (p) =>
-        `case '${p}': return (await import('composably:content/${p}')).default();`
+        `case '${p}': return (await import('${config.contentPrefix}/${p}')).default();`
     )
     .join('\n');
 

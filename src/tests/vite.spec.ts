@@ -6,6 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { ErrorCode } from '../lib/errors.js';
+import { resolveConfig } from '../lib/config.js';
 
 const TIMEOUT = 100000;
 const MODIFY_DELAY = 3000;
@@ -58,11 +59,11 @@ describe('Module loading', () => {
       contentRoot
     );
 
-    config = {
+    config = resolveConfig({
       root,
       contentRoot,
       componentRoot: '_'
-    };
+    });
 
     server = await createServer({
       root,
@@ -107,11 +108,11 @@ describe('Hot module replacement', () => {
       contentRoot
     );
 
-    pluginUserConfig = {
+    pluginUserConfig = resolveConfig({
       root,
       contentRoot,
       componentRoot: '_'
-    };
+    });
 
     server = await createServer({
       root,

@@ -117,7 +117,7 @@ class ContentLoader {
    * @throws PageNotFoundError if no matching file is found.
    */
   private async findAndParseContentFile(localPath: string): Promise<Fragment> {
-    localPath ||= this.config.indexFile || 'index';
+    localPath ||= this.config.indexFile;
 
     for (const ext of filetypes) {
       const absPath = `${toAbsolutePath(localPath, this.config)}.${ext}`;
@@ -233,7 +233,7 @@ class ContentLoader {
       obj: pageData,
       filter: (obj) =>
         typeof obj?.component === 'string' &&
-        !obj.component.startsWith('composably:'),
+        !obj.component.startsWith(this.config.componentPrefix),
       callback: (obj) =>
         this.processComponentValidation(obj as SourceComponentContent)
     })) as SourcePageContent;
@@ -243,7 +243,7 @@ class ContentLoader {
       obj: pageData,
       filter: (obj) =>
         typeof obj?.component === 'string' &&
-        obj.component.startsWith('composably:'),
+        obj.component.startsWith(this.config.componentPrefix),
       callback: async (obj) => {
         const processedComp = await this.processVirtualComponent(
           obj as SourceComponentContent
@@ -293,9 +293,7 @@ export const discoverContentPaths = (config: Config): string[] => {
       const { dir, name } = path.parse(filePath);
       const sitePath = path.join(dir, name);
 
-      return sitePath === (config.indexFile || 'index')
-        ? ''
-        : sitePath.replace(/\\/g, '/');
+      return sitePath === config.indexFile ? '' : sitePath.replace(/\\/g, '/');
     });
 
   return result;

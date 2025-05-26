@@ -161,10 +161,7 @@ export const parseComponentContent = async (
   content: SourceComponentContent,
   config: Config
 ): Promise<SourceComponentContent> => {
-  const {
-    markdownField = 'markdown', // Default field to parse
-    outputField = 'html' // Default field for output HTML
-  } = config;
+  const { markdownField, outputField } = config;
 
   // Check if the designated markdown field exists and is a string
   if (typeof content[markdownField] !== 'string') {

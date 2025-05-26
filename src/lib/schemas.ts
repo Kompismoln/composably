@@ -43,7 +43,8 @@ const process = async (content: SourceComponentContent) => {
       typeof prop === 'object' &&
       'component' in prop &&
       typeof prop.component === 'string' &&
-      prop.component.startsWith('composably:')
+      // TODO: replace with config.componentPrefix
+      prop.component.startsWith('composably:component')
     );
   };
 
@@ -78,6 +79,7 @@ const composablyTypes = {
 
   markdown: (options = {}) => {
     const prepare = (val: string): SourceComponentContent => ({
+      // TODO: replace with config.componentPrefix
       component: `composably:component/${shortHash(val)}.svelte`,
       markdown: val,
       options
