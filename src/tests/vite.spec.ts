@@ -1,46 +1,41 @@
 import { expect, test, describe, beforeEach, afterEach } from 'vitest';
 import { createServer, type ViteDevServer } from 'vite';
-import { composably } from '../lib/vite.js';
-import type { Config } from '../lib/types.d.ts';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+
 import { ErrorCode } from '../lib/errors.js';
 import { resolveConfig } from '../lib/config.js';
+import { composably } from '../lib/vite.js';
+import type { Config } from '../lib/types.d.ts';
 
 const TIMEOUT = 100000;
 const MODIFY_DELAY = 3000;
 const DELETE_DELAY = 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // Helper to create temporary files
-//
-async function setupTestFiles(
-  files: Record<string, string>,
-  contentRoot: string
-) {
-  await fs.rm(contentRoot, { recursive: true, force: true });
-  await fs.mkdir(contentRoot, { recursive: true });
+async function setupTestFiles(files: Record<string, string>, root: string) {
+  await fs.rm(root, { recursive: true, force: true });
+  await fs.mkdir(root, { recursive: true });
   for (const [relativePath, content] of Object.entries(files)) {
-    const fullPath = path.join(contentRoot, relativePath);
+    const fullPath = path.join(root, relativePath);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, content);
   }
 }
 
 // Helper to modify a file and wait a bit for the watcher
-async function modifyFile(
-  relativePath: string,
-  newContent: string,
-  contentRoot: string
-) {
-  const fullPath = path.join(contentRoot, relativePath);
-  await fs.writeFile(fullPath, newContent);
+async function modifyFile(file: string, content: string, root: string) {
+  const fullPath = path.join(root, file);
+  await fs.writeFile(fullPath, content);
   await new Promise((resolve) => setTimeout(resolve, MODIFY_DELAY));
 }
 
-async function deleteFile(relativePath: string, contentRoot: string) {
-  const fullPath = path.join(contentRoot, relativePath);
+// Helper to delete a file and wait a bit for the watcher
+async function deleteFile(relativePath: string, root: string) {
+  const fullPath = path.join(root, relativePath);
   await fs.unlink(fullPath);
   await new Promise((resolve) => setTimeout(resolve, DELETE_DELAY));
 }

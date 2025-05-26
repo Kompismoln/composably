@@ -67,7 +67,7 @@ describe('Content resolution', () => {
   });
 
   test("should raise PageNotFoundError content for 'no'", async () => {
-    expect(loader['findAndParseContentFile']('no')).rejects.toThrow(
+    await expect(loader['findAndParseContentFile']('no')).rejects.toThrow(
       PageNotFoundError
     );
   });
@@ -182,16 +182,16 @@ describe('Fragment resolution', () => {
   });
 
   test('should raise error for unsupported extension', async () => {
-    expect(testFragment({ _test: 'file.exe' }, loader)).rejects.toThrow(
+    await expect(testFragment({ _test: 'file.exe' }, loader)).rejects.toThrow(
       UnsupportedFileExtensionError
     );
   });
 
   test('should raise error for non-existent file', async () => {
-    expect(testFragment({ _test: 'no-file.md' }, loader)).rejects.toThrow(
+    await expect(testFragment({ _test: 'no-file.md' }, loader)).rejects.toThrow(
       FileNotFoundError
     );
-    expect(testFragment({ _test: 'no-file.js' }, loader)).rejects.toThrow(
+    await expect(testFragment({ _test: 'no-file.js' }, loader)).rejects.toThrow(
       FileNotFoundError
     );
   });

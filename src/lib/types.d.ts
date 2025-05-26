@@ -11,17 +11,14 @@ export type ComponentValidator = (
 
 export interface Config {
   root: string;
-  componentRoot: string; // Root directory for Svelte components
-  contentRoot: string; // Root directory for content files
-  indexFile: string; // Basename (without extension) of the file representing the root '/' path
+  componentRoot: string;
+  contentRoot: string;
+  indexFile: string;
   componentPrefix: string;
   contentPrefix: string;
-  // Parsing/Plugin Options (conflated for now)
   remarkPlugins: Plugin<unknown, MdastRoot>[];
   rehypePlugins: Plugin<unknown, HastRoot>[];
   validator: ComponentValidator;
-  markdownField: string; // Key holding markdown content after frontmatter parsing (Default: 'content')
-  outputField: string; // Key where parsed HTML output should be stored (Default: 'html')
 }
 
 export type PartialConfig = Partial<Config>;
@@ -41,6 +38,10 @@ export interface SourceComponentContent {
   component: string;
   [key: string]: unknown; // Props for the component
 }
+
+export type SourceVirtualComponentContent = SourceComponentContent & {
+  html: string;
+};
 
 /**
  * Represents the fully processed data for a content page,

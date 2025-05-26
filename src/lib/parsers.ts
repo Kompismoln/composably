@@ -37,7 +37,12 @@ import {
   defListHastHandlers
 } from './unified-plugins/definitionList.js';
 
-import type { SourceComponentContent, Config } from './types.d.ts';
+import type {
+  SourceComponentContent,
+  SourceVirtualComponentContent,
+  Config
+} from './types.d.ts';
+import { UnlikelyCodePathError } from './errors.js';
 
 // --- Helper Functions ---
 
@@ -108,36 +113,28 @@ async function parseMarkdownString(
 
   // 4. Bridge to Rehype
   processor.use(remarkRehype, {
-    fragment: true, // Keep as HTML fragment
-    allowDangerousHtml: true, // Usually needed for embedded HTML/components
+    fragment: true,
+    allowDangerousHtml: true,
     handlers: {
-      // Include default handlers
       ...extendedTableHandlers,
       ...defListHastHandlers
-      // Custom handlers could potentially be injected via config too
     }
   });
 
-  // 5. Rehype Plugins
   processor.use(rehypeHighlight, {
-    // Default: Syntax highlighting
     detect: true,
     ignoreMissing: true,
     languages: all
   });
 
-  // 6. Inject custom Rehype plugins
   (config.rehypePlugins || []).forEach((plugin) => {
-    // Ensure plugin is not null/undefined before using
     if (plugin) processor.use(plugin);
   });
 
-  // 7. Stringify to HTML
   processor.use(rehypeStringify, {
-    allowDangerousHtml: true // Match remarkRehype option
+    allowDangerousHtml: true
   });
 
-  // 8. Process the input
   return processor.process(markdown);
 }
 
@@ -160,21 +157,12 @@ async function parseMarkdownString(
 export const parseComponentContent = async (
   content: SourceComponentContent,
   config: Config
-): Promise<SourceComponentContent> => {
-  const { markdownField, outputField } = config;
-
-  // Check if the designated markdown field exists and is a string
-  if (typeof content[markdownField] !== 'string') {
-    // If the field doesn't exist or isn't a string, return the original object
-    // or throw an error, depending on desired behavior.
-    // For now, let's assume it might be optional and return.
-    console.warn(
-      `Field '${markdownField}' not found or not a string in content. Skipping parsing.`
-    );
-    return content;
+): Promise<SourceVirtualComponentContent> => {
+  if (typeof content.markdown !== 'string') {
+    throw new UnlikelyCodePathError(this);
   }
 
-  const markdownInput = content[markdownField] as string;
+  const markdownInput = content.markdown as string;
 
   // Prepare initial data for the VFile
   const initialVFileData = {
@@ -195,7 +183,7 @@ export const parseComponentContent = async (
 
   // 3. Update the content object
   // Add the generated HTML
-  content[outputField] = processedHtml;
+  content.html = processedHtml;
 
   // Merge properties extracted by plugins (e.g., toc from parseHeadings)
   // Ensure result.data exists and is an object
@@ -225,8 +213,8 @@ export const parseComponentContent = async (
   }
 
   // Remove the original markdown field
-  delete content[markdownField];
+  delete content.markdown;
 
   // Return the modified content object
-  return content;
+  return content as SourceVirtualComponentContent;
 };

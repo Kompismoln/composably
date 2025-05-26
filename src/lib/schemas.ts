@@ -2,39 +2,7 @@ import z, { ZodSchema } from 'zod';
 import type { SourceComponentContent } from './types.d.ts';
 import { shortHash } from './utils.js';
 
-/**
- * Provides the following utility schemas:
- *
- * - content
- *   Wrapper and a z.object type that allows a component property and parses
- *   markdown fields.
- *
- * - component
- *   An enumeration of component names that will be imported and
- *   made available under the property name.
- *
- * - slots
- *   A z.array with components that should render on the client.
- *
- */
-
-const handler = {
-  get(target: typeof composablyTypes, prop: string) {
-    // Check target first
-    if (Object.hasOwn(target, prop)) {
-      return target[prop as keyof typeof target];
-    }
-    // Check if prop is a valid own property of the imported 'z' object
-    if (Object.prototype.hasOwnProperty.call(z, prop)) {
-      // Assert that prop is a key of z before indexing
-      return z[prop as keyof typeof z];
-    }
-    // Return undefined or throw an error if prop is not found anywhere
-    throw new Error(`ComposablyZod has no property '${prop}'`);
-  }
-};
-
-const process = async (content: SourceComponentContent) => {
+const process = (content: SourceComponentContent): SourceComponentContent => {
   const isVirtualComponent = (
     prop: unknown
   ): prop is SourceComponentContent => {
@@ -58,23 +26,19 @@ const process = async (content: SourceComponentContent) => {
     return [key, val];
   });
 
-  return Object.fromEntries(entries);
+  return Object.fromEntries(entries) as SourceComponentContent;
 };
 
-const composablyTypes = {
+export const c = {
+  object: z.object,
+  string: z.string,
+  array: z.array,
+
   content: (obj: Record<string, ZodSchema>) => {
     return z
-      .object({ ...obj, component: z.string(), meta: c.meta() })
+      .object({ ...obj, component: z.string() })
       .strict()
       .transform((val) => process(val as SourceComponentContent));
-  },
-
-  meta: () => {
-    return z
-      .object({
-        svelte: z.boolean().optional()
-      })
-      .optional();
   },
 
   markdown: (options = {}) => {
@@ -84,7 +48,7 @@ const composablyTypes = {
       markdown: val,
       options
     });
-    return z.string().transform(prepare).or(composablyTypes.content({}));
+    return z.string().transform(prepare).or(c.content({}));
   },
 
   component: (allowed: string[] | null = null) => {
@@ -95,8 +59,7 @@ const composablyTypes = {
     return z.object({ component }).passthrough();
   },
 
-  slots: (allowed = null) =>
-    z.record(composablyTypes.component(allowed)).optional(),
+  slots: (allowed = null) => z.record(c.component(allowed)).optional(),
 
   image: () =>
     z.object({
@@ -132,6 +95,3 @@ const composablyTypes = {
       ])
     })
 };
-
-export type ComposablyZod = typeof composablyTypes & typeof z;
-export const c = new Proxy(composablyTypes, handler) as ComposablyZod;

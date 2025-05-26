@@ -7,7 +7,7 @@
   });
 </script>
 
-<script>
+<script lang="ts">
   let { title, body } = $props();
 </script>
 

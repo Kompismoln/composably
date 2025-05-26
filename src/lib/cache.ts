@@ -5,7 +5,7 @@ import { discoverContentPaths, loadContent } from './content.js';
 import { UnlikelyCodePathError } from './errors.js';
 
 import type {
-  SourceComponentContent,
+  SourceVirtualComponentContent,
   Config,
   SourcePageContent
 } from './types.d.ts';
@@ -26,7 +26,7 @@ const pageCache = new Map<
 export const virtualComponentCache = new Map<
   string,
   {
-    data: SourceComponentContent;
+    data: SourceVirtualComponentContent;
     sourceEntryPath: string;
   }
 >();
@@ -82,19 +82,22 @@ export async function virtualPageSource(
       }
     }
   )
-    .then(async (pageContent: SourcePageContent) => {
+    .then((pageContent: SourcePageContent) => {
       logCache(
         `Successfully loaded content for ${entryPath}, now transforming to string.`
       );
       try {
         const code = `export default async () => (${JSON.stringify(pageContent)});`;
 
-        return code.replace(/"component":"([^"]+)"/g, (_, compPath) => {
-          const importPath = compPath.startsWith(config.componentPrefix)
-            ? compPath
-            : `/${config.componentRoot}/${compPath}.svelte`;
-          return `"component":(await import('${importPath}')).default`;
-        });
+        return code.replace(
+          /"component":"([^"]+)"/g,
+          (_: string, compPath: string) => {
+            const importPath = compPath.startsWith(config.componentPrefix)
+              ? compPath
+              : `/${config.componentRoot}/${compPath}.svelte`;
+            return `"component":(await import('${importPath}')).default`;
+          }
+        );
       } catch (transformError) {
         logCache(
           `Error during page content transformation for ${entryPath}:`,
@@ -180,7 +183,7 @@ export function virtualComponentSource(id: string) {
 
   return {
     code: `${scriptString}\n${props.html || ''}`,
-    map: { version: 3, sources: [], names: [], mappings: '' } // Basic sourcemap
+    map: { version: 3, sources: [], names: [], mappings: '' }
   };
 }
 

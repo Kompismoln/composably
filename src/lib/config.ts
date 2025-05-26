@@ -10,8 +10,6 @@ const DEFAULTS: Config = {
   indexFile: 'index',
   remarkPlugins: [],
   rehypePlugins: [],
-  markdownField: 'markdown',
-  outputField: 'html',
   validator: colocate
 };
 

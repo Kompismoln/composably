@@ -1,15 +1,17 @@
 <script module>
   import { c } from '../lib/schemas.js';
+  import z from 'zod';
 
   export const schema = c.content({
     title: c.string(),
     body: c.markdown(),
     fragment: c.component(['Fragment']).optional()
   });
+  type Props = z.infer<typeof schema>;
 </script>
 
-<script>
-  let { title, body, fragment } = $props();
+<script lang="ts">
+  let { title, body, fragment, ..._rest }: Props = $props();
 </script>
 
 <h1 data-testid="h1">{title}</h1>
