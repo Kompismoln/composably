@@ -78,7 +78,7 @@ const composablyTypes = {
 
   markdown: (options = {}) => {
     const prepare = (val: string): SourceComponentContent => ({
-      component: `composably:component/${shortHash(val)}`,
+      component: `composably:component/${shortHash(val)}.svelte`,
       markdown: val,
       options
     });
