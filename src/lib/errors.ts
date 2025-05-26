@@ -64,7 +64,27 @@ export class ContentEntryNotFoundError extends ComposablyError {
 
 export class UnlikelyCodePathError extends ComposablyError {
   constructor(environment: unknown) {
-    const message = `This shouldn't happen.`;
+    let envString: string;
+
+    if (typeof environment === 'string') {
+      envString = environment;
+    } else if (environment === null) {
+      envString = 'null';
+    } else if (typeof environment === 'symbol') {
+      envString = environment.toString();
+    } else if (typeof environment === 'function') {
+      envString = `[function ${environment.name || '(anonymous)'}]`;
+    } else if (typeof environment === 'object') {
+      try {
+        envString = JSON.stringify(environment);
+      } catch (_e) {
+        envString = '[unserializable object]';
+      }
+    } else {
+      envString = 'truly unknown';
+    }
+
+    const message = `This shouldn't happen: ${envString}`;
     super(message, { context: { environment } });
   }
 }

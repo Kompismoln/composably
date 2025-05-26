@@ -18,7 +18,8 @@ import type {
   Fragment,
   ComponentValidator,
   SourcePageContent,
-  SourceComponentContent
+  SourceComponentContent,
+  SourceVirtualComponentContent
 } from './types.d.ts';
 
 export const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
@@ -54,9 +55,9 @@ class ContentLoader {
     }
 
     if (['.js', '.ts'].includes(fileExt)) {
-      let module;
+      let importedModule: unknown;
       try {
-        module = await import(/* @vite-ignore */ absPath);
+        importedModule = await import(/* @vite-ignore */ absPath);
       } catch (error) {
         if (
           error &&
@@ -68,10 +69,27 @@ class ContentLoader {
         }
         throw error;
       }
-      if (typeof module.default === 'function') {
-        fragment = module.default(this.reportFileDependency) as Fragment;
+
+      if (
+        typeof importedModule !== 'object' ||
+        importedModule === null ||
+        !('default' in importedModule)
+      ) {
+        throw new UnlikelyCodePathError(importedModule);
+      }
+
+      const defaultExport = (importedModule as { default: unknown }).default;
+
+      if (typeof defaultExport === 'function') {
+        type ExpectedDefaultFunction = (
+          reporter: typeof this.reportFileDependency
+        ) => Fragment;
+
+        fragment = (defaultExport as ExpectedDefaultFunction)(
+          this.reportFileDependency
+        );
       } else {
-        fragment = module.default as Fragment;
+        fragment = defaultExport as Fragment;
       }
     } else {
       let fileContent;
@@ -97,7 +115,7 @@ class ContentLoader {
         fragment = yaml.load(fileContent) as Fragment;
       }
       if (fileExt === '.json') {
-        fragment = JSON.parse(fileContent);
+        fragment = JSON.parse(fileContent) as Fragment;
       }
     }
 
@@ -182,13 +200,13 @@ class ContentLoader {
    */
   private async processVirtualComponent(
     content: SourceComponentContent
-  ): Promise<SourceComponentContent> {
+  ): Promise<SourceVirtualComponentContent> {
     if ('markdown' in content && typeof content.markdown === 'string') {
       const parsedContent = await parseComponentContent(content, this.config);
       this.reportVirtualComponent(parsedContent);
       return parsedContent;
     }
-    return content;
+    throw new UnlikelyCodePathError(this);
   }
 
   /**

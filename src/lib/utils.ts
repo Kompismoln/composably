@@ -13,8 +13,7 @@ export const contentTraverser: ContentTraverser = async ({
     const results = await Promise.all(
       obj.map((item) => contentTraverser({ obj: item, filter, callback }))
     );
-    const newArr = results.flat() as Fragment[];
-    return newArr;
+    return results.flat();
   }
   if (typeof obj === 'object' && obj !== null) {
     if (obj instanceof Date) {
@@ -39,8 +38,8 @@ export const contentTraverser: ContentTraverser = async ({
         return [key, newItem];
       })
     );
-    newObj = Object.fromEntries(entries);
 
+    newObj = Object.fromEntries(entries) as Fragment;
     return newObj;
   }
   return obj;
