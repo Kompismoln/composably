@@ -6,30 +6,45 @@ import { ErrorCode } from '../lib/errors.js';
 
 test('page-json.json', async () => {
   const { component, ...props } = await content('page-json');
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId } = render(component, { props });
   expect(getByTestId('page-title').innerHTML).toBe('page-json');
 });
 
 test('page-js.js', async () => {
   const { component, ...props } = await content('page-js');
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId } = render(component, { props });
   expect(getByTestId('page-title').innerHTML).toBe('page-js');
 });
 
 test('page-ts.ts', async () => {
   const { component, ...props } = await content('page-ts');
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId } = render(component, { props });
   expect(getByTestId('page-title').innerHTML).toBe('page-ts');
 });
 
 test('direct page import', async () => {
   const { component, ...props } = await page();
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId } = render(component, { props });
   expect(getByTestId('page-title').innerHTML).toBe('List page');
 });
 
 test('free page', async () => {
   const { component, ...props } = await content('page');
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId } = render(component, { props });
   expect(getByTestId('list-item-slot-prop').innerHTML).toBe('list-item-slot');
   expect(getByTestId('fragment-slot-prop').innerHTML).toBe('fragment-slot');
@@ -37,13 +52,16 @@ test('free page', async () => {
 
 test('site 404', async () => {
   const noPagePromise = content('no-page');
-  await expect(noPagePromise).rejects.toThrow(
-    expect.objectContaining({ code: ErrorCode.CONTENT_ENTRY_NOT_FOUND })
-  );
+  await expect(noPagePromise).rejects.toMatchObject({
+    code: ErrorCode.CONTENT_ENTRY_NOT_FOUND
+  });
 });
 
 test('site index', async () => {
   const { component, ...props } = await content('');
+  if (!component) {
+    throw new Error('Component should be defined');
+  }
   const { getByTestId, getByLabelText } = render(component, { props });
 
   expect(getByTestId('h1').innerHTML).toBe('Hello');

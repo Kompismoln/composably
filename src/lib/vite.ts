@@ -20,9 +20,7 @@ const logConfig = Debug('composably:config');
 const logLoad = Debug('composably:load');
 const logHMR = Debug('composably:hmr');
 
-export async function composably(
-  partialConfig: PartialConfig
-): Promise<Plugin> {
+export function composably(partialConfig: PartialConfig): Plugin {
   const config = resolveConfig(partialConfig);
 
   return {
@@ -72,7 +70,7 @@ export async function composably(
       return null;
     },
 
-    async handleHotUpdate({ file, server }) {
+    handleHotUpdate({ file, server }) {
       logHMR(`HMR triggered by: ${file}`);
       return getModulesToReload(file, server, config);
     },
@@ -93,7 +91,7 @@ export async function composably(
   };
 }
 
-async function handleFileEvent(
+function handleFileEvent(
   filePath: string,
   eventType: 'add' | 'unlink' | 'change',
   config: Config,

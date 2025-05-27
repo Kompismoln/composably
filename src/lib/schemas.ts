@@ -1,5 +1,5 @@
-import z, { ZodSchema } from 'zod';
-import type { SourceComponentContent } from './types.d.ts';
+import { z, ZodSchema } from 'zod';
+import type { CType, SourceComponentContent } from './types.d.ts';
 import { shortHash } from './utils.js';
 
 const process = (content: SourceComponentContent): SourceComponentContent => {
@@ -29,7 +29,9 @@ const process = (content: SourceComponentContent): SourceComponentContent => {
   return Object.fromEntries(entries) as SourceComponentContent;
 };
 
-export const c = {
+export const c: CType = {
+  ...z,
+
   object: z.object,
   string: z.string,
   array: z.array,

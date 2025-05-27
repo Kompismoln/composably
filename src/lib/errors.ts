@@ -1,3 +1,5 @@
+import type { ZodError } from 'zod';
+
 export class ComposablyError extends Error {
   public readonly cause?: Error;
   public readonly context?: Record<string, unknown>;
@@ -42,6 +44,13 @@ export class UnsupportedFileExtensionError extends ComposablyError {
   constructor(fileExtension: string) {
     const message = `Unsupported file extension: '${fileExtension}'`;
     super(message, { context: { fileExtension } });
+  }
+}
+
+export class ValidationError extends ComposablyError {
+  constructor(component: string, error: ZodError | null) {
+    const message = `Component '${component}' failed validation: ${error?.message || 'Unknown validation error'}`;
+    super(message, { context: { component, error } });
   }
 }
 

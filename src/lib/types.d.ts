@@ -1,7 +1,21 @@
-import type { SvelteComponent } from 'svelte';
+import type { ComponentType } from 'svelte';
 import type { Plugin } from 'unified';
 import type { Root as MdastRoot } from 'mdast';
 import type { Root as HastRoot } from 'hast';
+
+import {
+  z, // The main Zod export
+  ZodTypeAny, // A base type for any Zod schema
+  ZodString,
+  ZodObject,
+  ZodBoolean,
+  ZodEnum,
+  ZodRecord,
+  ZodOptional,
+  ZodEffects, // For .transform(), .refine()
+  ZodUnion // For .or()
+  // Import other specific Zod types as needed
+} from 'zod';
 
 export type ComponentValidator = (
   content: SourceComponentContent,
@@ -59,7 +73,7 @@ export interface SourcePageContent {
  * property (string), and adds it back as ComponentType. Inherits the index signature.
  */
 export type ComponentContent = Omit<SourceComponentContent, 'component'> & {
-  component: SvelteComponent; // Override with resolved Svelte Component
+  component: ComponentType; // Override with resolved Svelte Component
 };
 
 /**
@@ -71,7 +85,7 @@ export type PageContent = Omit<
   SourcePageContent,
   'component' | 'components'
 > & {
-  component?: SvelteComponent; // Override with optional resolved ComponentType
+  component?: ComponentType; // Override with optional resolved ComponentType
   components?: ComponentContent[]; // Override with list of runtime ComponentContent
 };
 // --- Utility Types ---
@@ -93,6 +107,10 @@ interface HeadingData {
   depth: number;
   text: string;
   id?: string; // id can be undefined if headerId doesn't find one
+}
+
+interface MarkdownOptions {
+  decreaseHeadings?: boolean;
 }
 
 // Augment the VFile module's DataMap interface
@@ -138,3 +156,67 @@ declare module 'unified' {
     toMarkdownExtensions?: ToMarkdownExtension[];
   }
 }
+
+declare function process(val: SourceComponentContent): SourceComponentContent;
+declare function shortHash(val: string): string;
+
+// Interface for your custom methods with precise return types
+interface CustomCUtilities {
+  content: (obj: Record<string, ZodTypeAny>) => ZodEffects<
+    ZodObject<
+      { [K in keyof typeof obj]: (typeof obj)[K] } & { component: ZodString }, // Input shape to object
+      'strict', // Strict mode
+      ZodTypeAny // Catchall for passthrough (can be more specific)
+    >,
+    SourceComponentContent, // Output type of the transform
+    SourceComponentContent & { component: string } // Input type of the transform
+  >;
+
+  markdown: (options?: MarkdownOptions) => ZodUnion<
+    [
+      ZodEffects<ZodString, SourceComponentContent, string>, // string -> transform
+      ReturnType<this['content']> // schema from c.content({})
+    ]
+  >;
+
+  component: (allowed?: string[] | null) => ZodObject<
+    { component: ZodString | ZodEnum<[string, ...string[]]> },
+    'passthrough', // Passthrough mode
+    ZodTypeAny
+  >;
+
+  slots: (
+    allowed?: string[] | null
+  ) => ZodOptional<ZodRecord<ZodString, ReturnType<this['component']>>>;
+
+  image: () => ZodObject<{ src: ZodString; alt: ZodString }>;
+
+  link: () => ZodObject<{
+    url: ZodString;
+    text: ZodString;
+    blank: ZodOptional<ZodBoolean>;
+  }>;
+
+  button: () => ZodObject<{
+    url: ZodString;
+    text: ZodString;
+    fill: ZodOptional<ZodBoolean>;
+  }>;
+
+  social: () => ZodObject<{
+    url: ZodString;
+    platform: ZodEnum<
+      [
+        'twitter',
+        'facebook',
+        'mastodon',
+        'instagram',
+        'youtube',
+        'bluesky',
+        'tiktok'
+      ]
+    >;
+  }>;
+}
+
+export type CType = typeof z & CustomCUtilities;

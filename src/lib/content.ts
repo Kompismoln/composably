@@ -1,5 +1,5 @@
 import matter from 'gray-matter';
-import yaml from 'js-yaml';
+import { load as yamlLoad } from 'js-yaml';
 import fs from 'node:fs/promises';
 import { globSync } from 'node:fs';
 import path from 'node:path';
@@ -24,16 +24,22 @@ import type {
 
 export const filetypes = ['js', 'ts', 'json', 'yaml', 'yml', 'md'];
 
+type VirtualComponentReporter = (
+  component: SourceVirtualComponentContent
+) => void;
+
+type FileDependencyReporter = (filePath: string) => void;
+
 class ContentLoader {
   private config: Config;
-  private reportVirtualComponent: (component: SourceComponentContent) => void;
-  private reportFileDependency: (filePath: string) => void;
+  private reportVirtualComponent: VirtualComponentReporter;
+  private reportFileDependency: FileDependencyReporter;
   private validator: ComponentValidator;
 
   constructor(
     config: Config,
-    reportVirtualComponent: (component: SourceComponentContent) => void,
-    reportFileDependency: (filePath: string) => void
+    reportVirtualComponent: VirtualComponentReporter,
+    reportFileDependency: FileDependencyReporter
   ) {
     this.config = config;
     this.reportVirtualComponent = reportVirtualComponent;
@@ -112,7 +118,7 @@ class ContentLoader {
         fragment = { ...data, body };
       }
       if (['.yml', '.yaml'].includes(fileExt)) {
-        fragment = yaml.load(fileContent) as Fragment;
+        fragment = yamlLoad(fileContent) as Fragment;
       }
       if (fileExt === '.json') {
         fragment = JSON.parse(fileContent) as Fragment;
@@ -278,8 +284,8 @@ class ContentLoader {
 export const loadContent = async (
   localPath: string,
   config: Config,
-  reportVirtualComponent: (component: SourceComponentContent) => void,
-  reportFileDependency: (filePath: string) => void
+  reportVirtualComponent: VirtualComponentReporter,
+  reportFileDependency: FileDependencyReporter
 ): Promise<SourcePageContent> => {
   const loader = new ContentLoader(
     config,

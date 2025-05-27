@@ -57,7 +57,9 @@ export default tseslint.config(
       'build/**',
       'dist/**',
       'coverage/**',
-      '*.js'
+      '**/*.js',
+      '**/*.svelte', // TODO: get z.infer to work in svelte components
+      'vitest-setup-client.ts'
     ]
   }
 );

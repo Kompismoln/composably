@@ -62,7 +62,7 @@ describe('Module loading', () => {
 
     server = await createServer({
       root,
-      plugins: [await composably(config)]
+      plugins: [composably(config)]
     });
 
     expect(server.config.root).toBe(root);
@@ -74,7 +74,10 @@ describe('Module loading', () => {
   });
 
   test('should load existing page', async () => {
-    const mypage = await server.ssrLoadModule('\0composably:content/exist');
+    const mypage = (await server.ssrLoadModule(
+      '\0composably:content/exist'
+    )) as { default: () => Promise<{ body: string }> };
+
     const mypageContent = await mypage.default();
     expect(mypageContent).toEqual({ body: 'I exist' });
   });
@@ -82,7 +85,7 @@ describe('Module loading', () => {
   test('should load non-existing page', async () => {
     await expect(
       server.ssrLoadModule('\0composably:content/no')
-    ).rejects.toThrow(expect.objectContaining({ name: 'PageNotFoundError' }));
+    ).rejects.toMatchObject({ name: 'PageNotFoundError' });
   });
 });
 
@@ -118,7 +121,7 @@ describe('Hot module replacement', () => {
           awaitWriteFinish: true
         }
       },
-      plugins: [await composably(pluginUserConfig)]
+      plugins: [composably(pluginUserConfig)]
     });
 
     expect(server.config.root).toBe(root);
@@ -132,17 +135,17 @@ describe('Hot module replacement', () => {
   test(
     'should reload page content when its source file changes',
     async () => {
-      const initialModule = await server.ssrLoadModule(
+      const initialModule = (await server.ssrLoadModule(
         '\0composably:content/mypage'
-      );
+      )) as { default: () => Promise<{ body: string }> };
       const initialContent = await initialModule.default();
       expect(initialContent).toEqual({ body: 'Initial Page' });
 
       await modifyFile('mypage.md', 'Updated Page', contentRoot);
 
-      const updatedModule = await server.ssrLoadModule(
+      const updatedModule = (await server.ssrLoadModule(
         '\0composably:content/mypage'
-      );
+      )) as { default: () => Promise<{ body: string }> };
       const updatedContent = await updatedModule.default();
       expect(updatedContent).toEqual({ body: 'Updated Page' });
     },
@@ -152,17 +155,21 @@ describe('Hot module replacement', () => {
   test(
     'should update content list when a new file is added',
     async () => {
-      let listModule = await server.ssrLoadModule('composably:content');
+      let listModule = (await server.ssrLoadModule('composably:content')) as {
+        default: (page: string) => Promise<unknown>;
+      };
 
       await expect(listModule.default('existing')).resolves.toBeDefined();
 
-      await expect(listModule.default('newpage')).rejects.toThrow(
-        expect.objectContaining({ code: ErrorCode.CONTENT_ENTRY_NOT_FOUND })
-      );
+      await expect(listModule.default('newpage')).rejects.toMatchObject({
+        code: ErrorCode.CONTENT_ENTRY_NOT_FOUND
+      });
 
       await modifyFile('newpage.md', 'newpage', contentRoot);
 
-      listModule = await server.ssrLoadModule('\0composably:content');
+      listModule = (await server.ssrLoadModule('\0composably:content')) as {
+        default: (page: string) => Promise<unknown>;
+      };
 
       const newPageModule = await listModule.default('newpage');
 
@@ -174,15 +181,20 @@ describe('Hot module replacement', () => {
   test(
     'should update content list when a file is deleted',
     async () => {
-      let listModule = await server.ssrLoadModule('\0composably:content');
+      let listModule = (await server.ssrLoadModule('\0composably:content')) as {
+        default: (page: string) => Promise<unknown>;
+      };
       await expect(listModule.default('to-delete')).resolves.toBeDefined();
 
       await deleteFile('to-delete.md', contentRoot);
 
-      listModule = await server.ssrLoadModule('\0composably:content');
-      await expect(listModule.default('to-delete')).rejects.toThrow(
-        expect.objectContaining({ code: ErrorCode.CONTENT_ENTRY_NOT_FOUND })
-      );
+      listModule = (await server.ssrLoadModule('\0composably:content')) as {
+        default: (page: string) => Promise<unknown>;
+      };
+
+      await expect(listModule.default('to-delete')).rejects.toMatchObject({
+        code: ErrorCode.CONTENT_ENTRY_NOT_FOUND
+      });
       await expect(listModule.default('keeper')).resolves.toBeDefined();
     },
     TIMEOUT

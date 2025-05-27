@@ -48,6 +48,7 @@
             nodejs_23
             nodePackages.svelte-language-server
             nodePackages.typescript-language-server
+            eslint_d
           ];
           shellHook = ''
             export DEBUG='composably*'

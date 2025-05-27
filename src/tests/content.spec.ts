@@ -74,7 +74,7 @@ describe('Content resolution', () => {
 });
 
 describe('Fragment resolution', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     mockReportFn.mockClear();
   });
 

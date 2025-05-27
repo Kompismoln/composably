@@ -116,30 +116,30 @@ export const parseComponentContent = async (
   processedHtml = transformBraces(processedHtml);
   processedHtml = transformSlots(processedHtml);
 
-  content.html = processedHtml;
+  const processedContent: SourceVirtualComponentContent = {
+    component: content.component,
+    html: processedHtml
+  };
 
   if (result.data && typeof result.data === 'object') {
     Object.keys(result.data).forEach((key) => {
       if (key !== 'meta' && key !== 'props') {
-        content[key] = result.data[key];
+        processedContent[key] = result.data[key];
       }
     });
 
     if (result.data.props && typeof result.data.props === 'object') {
       Object.entries(result.data.props || {}).forEach(([key, value]) => {
-        if (value) content[key] = value;
+        if (value) processedContent[key] = value;
       });
     }
   }
 
   if (content.parent && typeof content.parent === 'object') {
     Object.keys(content.parent).forEach((key) => {
-      content[key] = (content.parent as Record<string, unknown>)[key];
+      processedContent[key] = (content.parent as Record<string, unknown>)[key];
     });
-    delete content.parent;
   }
 
-  delete content.markdown;
-
-  return content as SourceVirtualComponentContent;
+  return processedContent;
 };
