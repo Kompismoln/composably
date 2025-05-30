@@ -159,7 +159,7 @@ export function virtualContentSource(config: Config) {
   const entryNames = `[${entryList.map((e) => `'${e}'`).join(',')}]`;
 
   return [
-    `import { ContentEntryNotFoundError } from '${path.posix.join(__dirname, 'errors.ts')}';`,
+    `import { ContentEntryNotFoundError } from '${path.posix.join(__dirname, 'errors')}';`,
     `export default async function loadPageContent(path) { switch (path) {`,
     `${cases}`,
     `default: throw new ContentEntryNotFoundError(path, ${entryNames});`,

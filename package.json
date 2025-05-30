@@ -48,7 +48,7 @@
       "import": "./dist/schemas.js"
     },
     "./errors": {
-      "types": "./dist/types.d.ts",
+      "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js"
     },
     "./types": {
